@@ -892,8 +892,8 @@ local input_ESP_Transparency = CreateInput(elements_Container, "Input_ESP_Transp
 -- Information
 AddPadding(elements_Container, 17, "Information")
 local output_Camera = CreateOutput(elements_Container, "Output", 1)
-local output_Character = CreateOutput(elements_Container, "Output", 3)
-local output_Misc = CreateOutput(elements_Container, "Output", 3)
+local output_Character = CreateOutput(elements_Container, "Output", 6)
+local output_Misc = CreateOutput(elements_Container, "Output", 2)
 
 local uniqueId = tostring(game:GetService("HttpService"):GenerateGUID(false))
 
@@ -1139,6 +1139,14 @@ local inputChangedConnection = game:GetService("UserInputService").InputChanged:
 while SCRIPT_ENABLED do
 	local dt = tick() - lastTick
 	local cam = workspace.CurrentCamera
+	
+	local humanoid = nil
+	
+	if LOCAL_PLAYER.Character then
+		if LOCAL_PLAYER.Character:FindFirstChild("Humanoid") then
+			humanoid = LOCAL_PLAYER.Character.Humanoid
+		end
+	end
 
 	--mainFrame.BackgroundTransparency = input_GuiTransparency.GetNumber()
 
@@ -1160,11 +1168,7 @@ while SCRIPT_ENABLED do
 
 	-- Noclip
 	if switch_Noclip.GetValue() == true then
-		if LOCAL_PLAYER.Character then
-			pcall(function()
-				LOCAL_PLAYER.Character.Humanoid:ChangeState(11)
-			end)
-		end
+		humanoid:ChangeState(11)
 	end
 
 	if switch_ESP_Enabled.ValueChanged() then
@@ -1229,7 +1233,7 @@ while SCRIPT_ENABLED do
 	end
 
 	pcall(function()
-		if switch_Freecam_Enabled.GetValue() == true and game.Players.LocalPlayer.Character.Humanoid.Health > 0 then
+		if switch_Freecam_Enabled.GetValue() == true and humanoid.Health > 0 then
 			do
 				spawn(function()
 					local w = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.W)
@@ -1313,7 +1317,7 @@ while SCRIPT_ENABLED do
 		if button_FixCamera.ButtonPressed() then
 			pcall(function()
 				cam.CameraType = Enum.CameraType.Custom
-				workspace.CurrentCamera.CameraSubject = LOCAL_PLAYER.Character.Humanoid
+				workspace.CurrentCamera.CameraSubject = humanoid
 			end)
 		end
 
@@ -1404,15 +1408,18 @@ while SCRIPT_ENABLED do
 	output_Character.EditStatus(1, "Character Position: " .. charPosString)
 	output_Character.EditStatus(2, "Character Rotation: " .. charRotationString)
 	output_Character.EditStatus(3, "Character Velocity: " .. charVelocityString)
+	output_Character.EditStatus(4, "Walk Speed: N/A")
+	output_Character.EditStatus(5, "Jump Power: N/A")
+	output_Character.EditStatus(6, "Health: N/A")
 	
-	output_Misc.EditStatus(1, "Health: N/A")
-	output_Misc.EditStatus(2, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
+	output_Misc.EditStatus(1, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
+	output_Misc.EditStatus(2, "Job ID: " .. game.JobId)
 
-	output_Misc.EditStatus(3, "Job ID: " .. game.JobId)
-
-	pcall(function()
-		output_Misc.EditStatus(1, "Health: " .. math.floor(LOCAL_PLAYER.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(LOCAL_PLAYER.Character.Humanoid.MaxHealth + 0.5))
-	end)
+	if humanoid then
+		output_Character.EditStatus(4, "Walk Speed: " .. humanoid.WalkSpeed)
+		output_Character.EditStatus(5, "Jump Power: " .. humanoid.JumpPower)
+		output_Character.EditStatus(6, "Health: " .. math.floor(humanoid.Health + 0.5) .. "/" .. math.floor(humanoid.MaxHealth + 0.5))
+	end
 
 
 	lastTick = tick()
