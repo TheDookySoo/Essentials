@@ -1116,7 +1116,7 @@ local aimbotTarget = nil
 
 local function InputChanged(input, gameProcessed)
 	if SCRIPT_ENABLED then
-		if input.UserInputType == Enum.UserInputType.MouseWheel then
+		if input.UserInputType == Enum.UserInputType.MouseWheel and not gameProcessed then
 			if switch_Freecam_Enabled.GetValue() == true then
 				local ray = workspace.CurrentCamera:ScreenPointToRay(MOUSE.X, MOUSE.Y)
 				local direction = ray.Direction
