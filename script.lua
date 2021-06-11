@@ -1,9 +1,9 @@
+local SCRIPT_ENABLED = true
+
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local MOUSE = LOCAL_PLAYER:GetMouse()
 
 local INPUT_SERVICE = game:GetService("UserInputService")
-
-local SCRIPT_ENABLED = true
 
 local APPLICATION_GUI_PARENT = game:GetService("RunService"):IsStudio() and game.Players.LocalPlayer.PlayerGui or game.CoreGui
 local APPLICATION_SIZE = UDim2.new(0, 380, 0, 274)
@@ -13,8 +13,6 @@ local ELEMENT_CONTAINER_EXTRA_PADDING = 0
 local ELEMENT_CONTAINER_HEIGHT = 19
 local ELEMENT_TITLE_PADDING = 10
 local SLIDER_MAX_DECIMAL_PLACES = 2
-
-local DEFAULT_AIMBOT_KEY = Enum.KeyCode.LeftControl
 
 local APPLICATION_THEME = {}
 do
@@ -827,7 +825,7 @@ end
 
 
 
-
+local DEFAULT_AIMBOT_KEY = Enum.KeyCode.LeftControl
 
 -- Application Gui
 local APP_GUI = CreateGui(APPLICATION_GUI_PARENT, "APPLICATION", false, false)
@@ -852,6 +850,7 @@ local switch_ESP_Enabled = CreateSwitch(elements_Container, "Switch_ESP_Enabled"
 local switch_Freecam_Enabled = CreateSwitch(elements_Container, "Switch_Freecam_Enabled", "Freecam Enabled", false)
 
 AddPadding(elements_Container, 4)
+local switch_UseDisplayName = CreateSwitch(elements_Container, "Switch_UseDisplayName", "Use Display Name", false)
 local switch_LabelItemInHand = CreateSwitch(elements_Container, "Switch_LabelItemInHand", "Label Item In Hand", false)
 local switch_ShowDistance = CreateSwitch(elements_Container, "Switch_ShowDistance_Enabled", "Show Distance", false)
 
@@ -874,6 +873,7 @@ AddPadding(elements_Container, 17, "Misc")
 
 local switch_Noclip = CreateSwitch(elements_Container, "Switch_Noclip", "Noclip Enabled", false)
 local button_FixCamera = CreateButton(elements_Container, "Button_FixCamera", "Fix Camera", "Fix")
+local button_LoadWorldAtCamera = CreateButton(elements_Container, "Button_LoadWorldAtCamera", "Load World At Camera", "Load")
 
 -- Keybinds
 AddPadding(elements_Container, 17, "Keybinds")
@@ -886,23 +886,20 @@ AddPadding(elements_Container, 17, "Settings")
 local input_FreecamSpeed = CreateInput(elements_Container, "Input_FreecamSpeed", "Freecam Speed", 100)
 local input_FreecamSensitivity = CreateInput(elements_Container, "Input_FreecamSensitivity", "Freecam Sensitivity", 0.5)
 local input_TeleportThroughLength = CreateInput(elements_Container, "Input_TeleportThroughLength", "Teleport Through Length", 5)
-local input_ESP_Transparency = CreateInput(elements_Container, "Input_ESP_Transparency", "ESP Transparency", 0.6)
+local input_ESP_Transparency = CreateInput(elements_Container, "Input_ESP_Transparency", "ESP Transparency", 0.8)
 
---AddPadding(elements_Container, 4, "")
---local input_GuiTransparency = CreateInput(elements_Container, "Input_GuiTransparency", "GUI Transparency", 0)
-
--- Status
-AddPadding(elements_Container, 17, "Stats")
-local output = CreateOutput(elements_Container, "Output", 6)
+-- Information
+AddPadding(elements_Container, 17, "Information")
+local output_Camera = CreateOutput(elements_Container, "Output", 1)
+local output_Character = CreateOutput(elements_Container, "Output", 3)
+local output_Misc = CreateOutput(elements_Container, "Output", 3)
 
 local uniqueId = tostring(game:GetService("HttpService"):GenerateGUID(false))
-
-local espBoxes = {}
 
 local function AddESPToPlayer(plr)
 	local function AddBox(c)
 		local box = Instance.new("BoxHandleAdornment", APP_GUI)
-		box.Name = plr.Name
+		box.Name = "Box"
 		box.Adornee = c
 		box.Size = c.Size
 		box.Color = BrickColor.new(1, 1, 1)
@@ -910,28 +907,33 @@ local function AddESPToPlayer(plr)
 		box.ZIndex = 10
 		box.AlwaysOnTop = true
 		
-		table.insert(espBoxes, box)
-		
 		c.AncestryChanged:Connect(function()
 			if not box:IsAncestorOf(workspace) then
 				box:Destroy()
 			end
 		end)
-
-		return box
 	end
 
 	local stop = false
-
+	
 	if switch_ESP_Enabled.GetValue() == true then
-		spawn(function()
-			if plr.Character and plr ~= LOCAL_PLAYER then
+		local thread = coroutine.create(function()
+			if plr.Character and plr ~= LOCAL_PLAYER then -- Ensure the player's character exists and that this player is not us
+				-- Wait until humanoid exists, otherwise just stop the loop after too many checks
 				local step = 0
-				repeat step = step + 1 wait() until plr.Character:FindFirstChild("Humanoid") or step > 1000 or not SCRIPT_ENABLED
+				local maxChecks = 500
+				repeat step = step + 1 wait() until plr.Character:FindFirstChild("Humanoid") or step > maxChecks or not SCRIPT_ENABLED
 
-				if SCRIPT_ENABLED and step <= 1000 then
+				if step <= maxChecks then
+					-- Remove duplicate tags
+					for _, v in pairs(APP_GUI:GetChildren()) do
+						if v.Name == "Tag_" .. plr.Name then
+							v:Destroy()
+						end
+					end
+					
 					local tag = Instance.new("TextLabel", APP_GUI)
-					tag.Name = "Tag"
+					tag.Name = "Tag_" .. plr.Name
 					tag.TextSize = 11
 					tag.TextColor3 = Color3.new(1, 1, 1)
 					tag.Font = Enum.Font.GothamSemibold
@@ -964,77 +966,109 @@ local function AddESPToPlayer(plr)
 
 						item.Position = UDim2.new(0.5, 0, 0, -18)
 					end
-
-					plr.Character.ChildAdded:Connect(function(c)
-						if c:IsA("Tool") then
-							item.Text = "Holding: " .. c.Name
-						end
-					end)
-
-					plr.Character.ChildRemoved:Connect(function(c)
-						if c:IsA("Tool") then
-							if "Holding: " .. c.Name == item.Text then
-								item.Text = ""
+					
+					local childAddedConnection = plr.Character.ChildAdded:Connect(function(c)
+						if SCRIPT_ENABLED then
+							if c:IsA("Tool") then -- If player equips tool, then display that
+								item.Text = "Holding: " .. c.Name
+							end
+							
+							if c:IsA("BasePart") and c.Name ~= "HumanoidRootPart" then
+								AddBox(c)
 							end
 						end
 					end)
 
+					local childRemovedConnection = plr.Character.ChildRemoved:Connect(function(c) -- If player unequips tool, then change that
+						if SCRIPT_ENABLED then
+							if c:IsA("Tool") then
+								item.Text = "" -- Assume no tools are being held
+								
+								for _, v in pairs(plr.Character:GetChildren()) do -- Check if a tool is held then change it
+									if v:IsA("Tool") then
+										item.Text = "Holding: " .. v.Name
+									end
+								end
+							end
+						end
+					end)
+					
+					-- Add a box for every part, excluding the HumanoidRootPart
 					for _, c in pairs(plr.Character:GetChildren()) do
 						if c:IsA("BasePart") and c.Name ~= "HumanoidRootPart" then
 							AddBox(c)
 						end
 
-						if c:IsA("Tool") then
+						if c:IsA("Tool") then -- Check if a tool is held
 							item.Text = "Holding: " .. c.Name
 						end
 					end
+					
+					local currentCharacter = plr.Character
+					local renderSteppedConnection = nil
+					
+					local function Disconnect()
+						pcall(function() childAddedConnection:Disconnect() end)
+						pcall(function() childRemovedConnection:Disconnect() end)
+						pcall(function() renderSteppedConnection:Disconnect() end)
+						
+						pcall(function() tag:Destroy() end)
+					end
+					
+					renderSteppedConnection = game:GetService("RunService").RenderStepped:Connect(function()
+						if SCRIPT_ENABLED then
+							if plr == nil or currentCharacter ~= plr.Character or tag.Parent ~= APP_GUI then
+								Disconnect()
+							end
+							
+							local head = plr.Character:FindFirstChild("Head")
+							
+							-- Tag
+							local tagText = ""
+							
+							if switch_UseDisplayName.GetValue() == true then
+								tagText = "[" .. plr.DisplayName .. "]"
+							else
+								tagText = "[" .. plr.Name .. "]"
+							end
 
-					plr.Character.ChildAdded:Connect(function(c)
-						if c:IsA("BasePart") and c.Name ~= "HumanoidRootPart" and SCRIPT_ENABLED then
-							AddBox(c)
-						end
-					end)
+							tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
 
-					game:GetService("RunService").RenderStepped:Connect(function()
-						if SCRIPT_ENABLED and tag.Parent ~= nil and stop == false then
-							if plr.Character or plr == nil then
-								if plr.Character:FindFirstChild("Head") then
-									local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(plr.Character.Head.Position)
-									local offset = 1500 / (plr.Character.Head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
+							item.Visible = switch_LabelItemInHand.GetValue()
 
-									if onScreen then
-										tag.Visible = true
-										tag.Position = UDim2.new(0, pos.X, 0, pos.Y - offset)
-									else
-										tag.Visible = false
-									end
+							if plr.Character:FindFirstChild("Humanoid") then
+								tagText = tagText .. "[" .. math.floor(plr.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(plr.Character.Humanoid.MaxHealth + 0.5) .. "]"
+
+								if switch_ShowDistance.GetValue() == true then
+									tagText = tagText .. "[" .. math.floor((workspace.CurrentCamera.CFrame.Position - plr.Character.HumanoidRootPart.Position).Magnitude + 0.5) .. " studs]"
 								end
+							end
+							
+							tag.Text = tagText
+							
+							-- Position
+							if head ~= nil then
+								local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
+								local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
 
-								-- Tag
-								tag.Text = "[" .. plr.Name .. "]"
-								tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
-
-								item.Visible = switch_LabelItemInHand.GetValue()
-
-								if plr.Character:FindFirstChild("Humanoid") then
-									tag.Text = tag.Text .. "[" .. math.floor(plr.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(plr.Character.Humanoid.MaxHealth + 0.5) .. "]"
-
-									if switch_ShowDistance.GetValue() == true then
-										tag.Text = tag.Text .. "[" .. math.floor((workspace.CurrentCamera.CFrame.Position - plr.Character.HumanoidRootPart.Position).Magnitude + 0.5) .. " studs]"
-									end
+								if onScreen then
+									tag.Visible = true
+									tag.Position = UDim2.new(0, pos.X, 0, pos.Y - offset)
+								else
+									tag.Visible = false
 								end
 							else
-								tag:Destroy()
-								stop = true
+								tag.Visible = false
 							end
+						else
+							Disconnect()
 						end
 					end)
-
-					plr.Character.Humanoid.Died:Wait()
-					tag:Destroy()
 				end
 			end
 		end)
+		
+		coroutine.resume(thread)
 	end
 end
 
@@ -1052,8 +1086,6 @@ game.Players.PlayerAdded:Connect(function(plr)
 end)
 
 local function RemoveESPs()
-	espBoxes = {}
-	
 	for _, plr in pairs(game.Players:GetPlayers()) do
 		if plr.Character then
 			for _, c in pairs(plr.Character:GetDescendants()) do
@@ -1063,7 +1095,7 @@ local function RemoveESPs()
 			end
 
 			for _, c in pairs(APP_GUI:GetChildren()) do
-				if c:IsA("BoxHandleAdornment") or c.Name == "Tag" then
+				if c:IsA("BoxHandleAdornment") or string.find(c.Name, "Tag") then
 					c:Destroy()
 				end
 			end
@@ -1076,11 +1108,26 @@ local freecamVelocity = Vector3.new(0, 0, 0)
 local freecamRotation = Vector2.new(0, 0)
 local freecamPosition = Vector3.new(0, 0, 0)
 
-local previousCamType = Enum.CameraType.Custom
+local previousCamType = workspace.CurrentCamera.CameraType
 local lastTick = tick()
 
 local aimbotTarget = nil
 
+
+local function InputChanged(input, gameProcessed)
+	if SCRIPT_ENABLED then
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			if switch_Freecam_Enabled.GetValue() == true then
+				local ray = workspace.CurrentCamera:ScreenPointToRay(MOUSE.X, MOUSE.Y)
+				local direction = ray.Direction
+				
+				freecamPosition = freecamPosition + (direction * input.Position.Z * 20)
+			end
+		end
+	end
+end
+
+local inputChangedConnection = game:GetService("UserInputService").InputChanged:Connect(InputChanged)
 
 while SCRIPT_ENABLED do
 	local dt = tick() - lastTick
@@ -1093,6 +1140,15 @@ while SCRIPT_ENABLED do
 		cursor.Visible = true
 	else
 		cursor.Visible = false
+	end
+	
+	-- Load world
+	if button_LoadWorldAtCamera.ButtonPressed() then
+		local thread = coroutine.create(function()
+			LOCAL_PLAYER:RequestStreamAroundAsync(cam.CFrame.Position)
+		end)
+		
+		coroutine.resume(thread)
 	end
 
 	-- Noclip
@@ -1302,32 +1358,53 @@ while SCRIPT_ENABLED do
 	
 	-- Update ESP transparency
 	if input_ESP_Transparency.InputChanged() then
-		for _, v in pairs(espBoxes) do
-			v.Transparency = input_ESP_Transparency.GetNumber()
+		for _, v in pairs(APP_GUI:GetChildren()) do
+			if v:IsA("BoxHandleAdornment") and v.Name == "Box" then
+				v.Transparency = input_ESP_Transparency.GetNumber()
+			end
 		end
 	end
 
-	-- Update Statuses
+	-- Update Outputs
 	local camPosString = RoundNumber(cam.CFrame.Position.X, 2) .. ", " .. RoundNumber(cam.CFrame.Position.Y, 2) .. ", " .. RoundNumber(cam.CFrame.Position.Z, 2)
-	local charVelocityString = ""
+	local charPosString = "N/A"
+	local charRotationString = "N/A"
+	local charVelocityString = "N/A"
 
 	if LOCAL_PLAYER.Character then
-		if LOCAL_PLAYER.Character:FindFirstChild("HumanoidRootPart") then
-			local root = LOCAL_PLAYER.Character.Head
-
-			charVelocityString = RoundNumber(root.Velocity.Magnitude, 2) .. " sps"
+		local root = LOCAL_PLAYER.Character.PrimaryPart
+		local humanoidRootPart = LOCAL_PLAYER.Character:FindFirstChild("HumanoidRootPart")
+		
+		if humanoidRootPart then
+			local x, y, z = humanoidRootPart.Orientation.X, humanoidRootPart.Orientation.Y, humanoidRootPart.Orientation.Z
+			
+			charRotationString = RoundNumber(x, 2) .. ", " .. RoundNumber(y, 2) .. ", " .. RoundNumber(z, 2)
+		end
+		
+		if root then
+			if root:IsA("BasePart") then
+				local x, y, z = root.Orientation.X, root.Orientation.Y, root.Orientation.Z
+				
+				charPosString = RoundNumber(root.Position.X, 2) .. ", " .. RoundNumber(root.Position.Y, 2) .. ", " .. RoundNumber(root.Position.Z, 2)
+				charVelocityString = RoundNumber(root.Velocity.Magnitude, 2) .. " sps"
+			end
 		end
 	end
+	
+	
+	output_Camera.EditStatus(1, "Camera Position: " .. camPosString)
+	
+	output_Character.EditStatus(1, "Character Position: " .. charPosString)
+	output_Character.EditStatus(2, "Character Rotation: " .. charRotationString)
+	output_Character.EditStatus(3, "Character Velocity: " .. charVelocityString)
+	
+	output_Misc.EditStatus(1, "Health: N/A")
+	output_Misc.EditStatus(2, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
 
-	output.EditStatus(1, "Camera Position: " .. camPosString)
-	output.EditStatus(2, "Character Velocity: " .. charVelocityString)
-	output.EditStatus(3, "Health: N/A")
-	output.EditStatus(4, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
-
-	output.EditStatus(5, "Job ID: " .. game.JobId)
+	output_Misc.EditStatus(3, "Job ID: " .. game.JobId)
 
 	pcall(function()
-		output.EditStatus(3, "Health: " .. math.floor(LOCAL_PLAYER.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(LOCAL_PLAYER.Character.Humanoid.MaxHealth + 0.5))
+		output_Misc.EditStatus(1, "Health: " .. math.floor(LOCAL_PLAYER.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(LOCAL_PLAYER.Character.Humanoid.MaxHealth + 0.5))
 	end)
 
 
@@ -1336,3 +1413,10 @@ while SCRIPT_ENABLED do
 end
 
 RemoveESPs()
+
+if switch_Freecam_Enabled.GetValue() == true then
+	workspace.CurrentCamera.CameraType = previousCamType
+	game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Pass end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_FreecamDown.GetKeyCode(), keybind_FreecamUp.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
+end
+
+inputChangedConnection:Disconnect()
