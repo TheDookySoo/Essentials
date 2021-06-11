@@ -853,7 +853,7 @@ AddPadding(elements_Container, 4)
 local switch_UseDisplayName = CreateSwitch(elements_Container, "Switch_UseDisplayName", "Use Display Name", false)
 local switch_LabelItemInHand = CreateSwitch(elements_Container, "Switch_LabelItemInHand", "Label Item In Hand", false)
 local switch_ShowDistance = CreateSwitch(elements_Container, "Switch_ShowDistance_Enabled", "Show Distance", false)
-local switch_ObviousTags = CreateSwitch(elements_Container, "Switch_ObviousTags", "Obvious Tags", false)
+local switch_BoldTags = CreateSwitch(elements_Container, "Switch_BoldTags", "Bold Tags", false)
 
 -- Teleport
 AddPadding(elements_Container, 17, "Teleport")
@@ -1033,7 +1033,7 @@ local function AddESPToPlayer(plr)
 								tagText = "[" .. plr.Name .. "]"
 							end
 							
-							if switch_ObviousTags.GetValue() == true then
+							if switch_BoldTags.GetValue() == true then
 								tag.TextStrokeTransparency = 0
 							else
 								tag.TextStrokeTransparency = 0.9
