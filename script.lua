@@ -854,6 +854,7 @@ local switch_UseDisplayName = CreateSwitch(elements_Container, "Switch_UseDispla
 local switch_LabelItemInHand = CreateSwitch(elements_Container, "Switch_LabelItemInHand", "Label Item In Hand", false)
 local switch_ShowDistance = CreateSwitch(elements_Container, "Switch_ShowDistance_Enabled", "Show Distance", false)
 local switch_BoldTags = CreateSwitch(elements_Container, "Switch_BoldTags", "Bold Tags", false)
+local input_IsolatePlayer = CreateInput(elements_Container, "Input_IsolatePlayer", "Isolate Player", "")
 
 -- Teleport
 AddPadding(elements_Container, 17, "Teleport")
@@ -1024,43 +1025,60 @@ local function AddESPToPlayer(plr)
 							
 							local head = plr.Character:FindFirstChild("Head")
 							
-							-- Tag
-							local tagText = ""
+							-- Isolate players
+							local shouldHide = false
 							
-							if switch_UseDisplayName.GetValue() == true then
-								tagText = "[" .. plr.DisplayName .. "]"
-							else
-								tagText = "[" .. plr.Name .. "]"
-							end
-							
-							if switch_BoldTags.GetValue() == true then
-								tag.TextStrokeTransparency = 0
-							else
-								tag.TextStrokeTransparency = 0.9
-							end
-
-							tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
-
-							item.Visible = switch_LabelItemInHand.GetValue()
-
-							if plr.Character:FindFirstChild("Humanoid") then
-								tagText = tagText .. "[" .. math.floor(plr.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(plr.Character.Humanoid.MaxHealth + 0.5) .. "]"
-
-								if switch_ShowDistance.GetValue() == true then
-									tagText = tagText .. "[" .. math.floor((workspace.CurrentCamera.CFrame.Position - plr.Character.HumanoidRootPart.Position).Magnitude + 0.5) .. " studs]"
+							do
+								local keyword = input_IsolatePlayer.GetText()
+								
+								if keyword ~= "" then
+									if not string.find(string.lower(plr.Name), string.lower(keyword)) then
+										shouldHide = true
+									end
 								end
 							end
 							
-							tag.Text = tagText
-							
-							-- Position
-							if head ~= nil then
-								local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
-								local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
+							if shouldHide == false then
+								-- Tag
+								local tagText = ""
+								
+								if switch_UseDisplayName.GetValue() == true then
+									tagText = "[" .. plr.DisplayName .. "]"
+								else
+									tagText = "[" .. plr.Name .. "]"
+								end
+								
+								if switch_BoldTags.GetValue() == true then
+									tag.TextStrokeTransparency = 0
+								else
+									tag.TextStrokeTransparency = 0.9
+								end
 
-								if onScreen then
-									tag.Visible = true
-									tag.Position = UDim2.new(0, pos.X, 0, pos.Y - offset)
+								tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+
+								item.Visible = switch_LabelItemInHand.GetValue()
+
+								if plr.Character:FindFirstChild("Humanoid") then
+									tagText = tagText .. "[" .. math.floor(plr.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(plr.Character.Humanoid.MaxHealth + 0.5) .. "]"
+
+									if switch_ShowDistance.GetValue() == true then
+										tagText = tagText .. "[" .. math.floor((workspace.CurrentCamera.CFrame.Position - plr.Character.HumanoidRootPart.Position).Magnitude + 0.5) .. " studs]"
+									end
+								end
+								
+								tag.Text = tagText
+								
+								-- Position
+								if head ~= nil then
+									local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
+									local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
+
+									if onScreen then
+										tag.Visible = true
+										tag.Position = UDim2.new(0, pos.X, 0, pos.Y - offset)
+									else
+										tag.Visible = false
+									end
 								else
 									tag.Visible = false
 								end
