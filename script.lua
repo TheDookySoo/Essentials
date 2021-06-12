@@ -1054,13 +1054,21 @@ local function AddESPToPlayer(plr)
 									tagText = "[" .. plr.Name .. "]"
 								end
 								
+								tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+								
 								if switch_BoldTags.GetValue() == true then
 									tag.TextStrokeTransparency = 0
+									
+									local color = tag.TextColor3
+									local h, s, v = color:ToHSV()
+									
+									color = Color3.fromHSV(h, s, 1 - v)
+									
+									tag.TextStrokeColor3 = color 
 								else
 									tag.TextStrokeTransparency = 0.9
+									tag.TextStrokeColor3 = Color3.new(0, 0, 0)
 								end
-
-								tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
 
 								item.Visible = switch_LabelItemInHand.GetValue()
 
