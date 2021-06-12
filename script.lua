@@ -1032,8 +1032,14 @@ local function AddESPToPlayer(plr)
 								local keyword = input_IsolatePlayer.GetText()
 								
 								if keyword ~= "" then
-									if not string.find(string.lower(plr.Name), string.lower(keyword)) then
-										shouldHide = true
+									if switch_UseDisplayName.GetValue() == true then
+										if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
+											shouldHide = true
+										end
+									else
+										if not string.find(string.lower(plr.Name), string.lower(keyword)) then
+											shouldHide = true
+										end
 									end
 								end
 							end
