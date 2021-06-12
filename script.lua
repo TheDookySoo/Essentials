@@ -1062,7 +1062,7 @@ local function AddESPToPlayer(plr)
 									local color = tag.TextColor3
 									local h, s, v = color:ToHSV()
 									
-									color = Color3.fromHSV(h, s, 1 - v)
+									color = Color3.fromHSV((h + 0.5) % 1, s, (v + 0.5) % 1)
 									
 									tag.TextStrokeColor3 = color 
 								else
