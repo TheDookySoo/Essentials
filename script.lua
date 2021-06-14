@@ -892,6 +892,7 @@ local input_ESP_Transparency = CreateInput(elements_Container, "Input_ESP_Transp
 
 -- Information
 AddPadding(elements_Container, 17, "Information")
+local output_Freecam = CreateOutput(elements_Container, "Output", 1)
 local output_Camera = CreateOutput(elements_Container, "Output", 1)
 local output_Character = CreateOutput(elements_Container, "Output", 6)
 local output_Misc = CreateOutput(elements_Container, "Output", 2)
@@ -1149,6 +1150,7 @@ local freecamPosition = Vector3.new(0, 0, 0)
 
 local previousCamType = workspace.CurrentCamera.CameraType
 local lastTick = tick()
+local lastTickCheckLoadedPlayers = tick()
 
 local aimbotTarget = nil
 
@@ -1434,6 +1436,30 @@ while SCRIPT_ENABLED do
 		end
 	end
 	
+	
+	do -- Count how many players are not loaded in
+		if tick() - lastTickCheckLoadedPlayers > 1 then -- Check only every second
+			lastTickCheckLoadedPlayers = tick()
+			
+			local notLoadedCount = 0
+			
+			for _, v in pairs(game.Players:GetPlayers()) do
+				local isLoaded = true
+				
+				if not v.Character then
+					isLoaded = false
+				elseif not v.Character:FindFirstChild("Head") then
+					isLoaded = false
+				end
+				
+				if isLoaded == false then
+					notLoadedCount = notLoadedCount + 1
+				end
+			end
+			
+			output_Freecam.EditStatus(1, "Players not loaded in: " .. notLoadedCount)
+		end
+	end
 	
 	output_Camera.EditStatus(1, "Camera Position: " .. camPosString)
 	
