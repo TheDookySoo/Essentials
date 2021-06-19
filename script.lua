@@ -1255,11 +1255,6 @@ while SCRIPT_ENABLED do
 
 	if button_TeleportToCamera.ButtonPressed() then
 		if LOCAL_PLAYER.Character then
-			local look = -(CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).LookVector
-			local up = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).UpVector
-			local right = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).RightVector
-			cam.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)
-			
 			LOCAL_PLAYER.Character:SetPrimaryPartCFrame(CFrame.new(workspace.CurrentCamera.CFrame.Position))
 		end
 	end
