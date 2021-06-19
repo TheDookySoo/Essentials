@@ -876,6 +876,7 @@ AddPadding(elements_Container, 17, "Misc")
 local switch_Noclip = CreateSwitch(elements_Container, "Switch_Noclip", "Noclip Enabled", false)
 local button_FixCamera = CreateButton(elements_Container, "Button_FixCamera", "Fix Camera", "Fix")
 local button_LoadWorldAtCamera = CreateButton(elements_Container, "Button_LoadWorldAtCamera", "Load World At Camera", "Load")
+local button_Sit = CreateButton(elements_Container, "Button_Sit", "Sit", "Sit")
 
 -- Keybinds
 AddPadding(elements_Container, 17, "Keybinds")
@@ -1189,6 +1190,13 @@ while SCRIPT_ENABLED do
 		cursor.Visible = true
 	else
 		cursor.Visible = false
+	end
+	
+	-- Sit
+	if button_Sit.ButtonPressed() then
+		if humanoid then
+			humanoid.Sit = true
+		end
 	end
 	
 	-- Load world
