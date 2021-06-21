@@ -854,6 +854,7 @@ local switch_UseDisplayName = CreateSwitch(elements_Container, "Switch_UseDispla
 local switch_LabelItemInHand = CreateSwitch(elements_Container, "Switch_LabelItemInHand", "Label Item In Hand", false)
 local switch_ShowDistance = CreateSwitch(elements_Container, "Switch_ShowDistance_Enabled", "Show Distance", false)
 local switch_BoldTags = CreateSwitch(elements_Container, "Switch_BoldTags", "Bold Tags", false)
+local switch_ShowTags = CreateSwitch(elements_Container, "Switch_ShowTags", "Show Tags", true)
 local input_IsolatePlayer = CreateInput(elements_Container, "Input_IsolatePlayer", "Isolate Player", "")
 
 -- Teleport
@@ -1028,70 +1029,74 @@ local function AddESPToPlayer(plr)
 							local head = plr.Character:FindFirstChild("Head")
 							
 							-- Isolate players
-							local shouldHide = false
-							
-							do
-								local keyword = input_IsolatePlayer.GetText()
+							if switch_ShowTags.GetValue() == true then
+								local shouldHide = false
 								
-								if keyword ~= "" then
+								do
+									local keyword = input_IsolatePlayer.GetText()
+									
+									if keyword ~= "" then
+										if switch_UseDisplayName.GetValue() == true then
+											if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
+												shouldHide = true
+											end
+										else
+											if not string.find(string.lower(plr.Name), string.lower(keyword)) then
+												shouldHide = true
+											end
+										end
+									end
+								end
+								
+								if shouldHide == false then
+									-- Tag
+									local tagText = ""
+									
 									if switch_UseDisplayName.GetValue() == true then
-										if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
-											shouldHide = true
-										end
+										tagText = "[" .. plr.DisplayName .. "]"
 									else
-										if not string.find(string.lower(plr.Name), string.lower(keyword)) then
-											shouldHide = true
+										tagText = "[" .. plr.Name .. "]"
+									end
+									
+									tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+									
+									if switch_BoldTags.GetValue() == true then
+										tag.TextStrokeTransparency = 0
+										
+										local color = tag.TextColor3
+										local h, s, v = color:ToHSV()
+										
+										color = Color3.fromHSV((h + 0.5) % 1, s, (v + 0.5) % 1)
+										
+										tag.TextStrokeColor3 = color 
+									else
+										tag.TextStrokeTransparency = 0.9
+										tag.TextStrokeColor3 = Color3.new(0, 0, 0)
+									end
+
+									item.Visible = switch_LabelItemInHand.GetValue()
+
+									if plr.Character:FindFirstChild("Humanoid") then
+										tagText = tagText .. "[" .. math.floor(plr.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(plr.Character.Humanoid.MaxHealth + 0.5) .. "]"
+
+										if switch_ShowDistance.GetValue() == true then
+											tagText = tagText .. "[" .. math.floor((workspace.CurrentCamera.CFrame.Position - plr.Character.HumanoidRootPart.Position).Magnitude + 0.5) .. " studs]"
 										end
 									end
-								end
-							end
-							
-							if shouldHide == false then
-								-- Tag
-								local tagText = ""
-								
-								if switch_UseDisplayName.GetValue() == true then
-									tagText = "[" .. plr.DisplayName .. "]"
-								else
-									tagText = "[" .. plr.Name .. "]"
-								end
-								
-								tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
-								
-								if switch_BoldTags.GetValue() == true then
-									tag.TextStrokeTransparency = 0
 									
-									local color = tag.TextColor3
-									local h, s, v = color:ToHSV()
+									tag.Text = tagText
 									
-									color = Color3.fromHSV((h + 0.5) % 1, s, (v + 0.5) % 1)
-									
-									tag.TextStrokeColor3 = color 
-								else
-									tag.TextStrokeTransparency = 0.9
-									tag.TextStrokeColor3 = Color3.new(0, 0, 0)
-								end
+									-- Position
+									if head ~= nil then
+										local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
+										local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
 
-								item.Visible = switch_LabelItemInHand.GetValue()
-
-								if plr.Character:FindFirstChild("Humanoid") then
-									tagText = tagText .. "[" .. math.floor(plr.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(plr.Character.Humanoid.MaxHealth + 0.5) .. "]"
-
-									if switch_ShowDistance.GetValue() == true then
-										tagText = tagText .. "[" .. math.floor((workspace.CurrentCamera.CFrame.Position - plr.Character.HumanoidRootPart.Position).Magnitude + 0.5) .. " studs]"
-									end
-								end
-								
-								tag.Text = tagText
-								
-								-- Position
-								if head ~= nil then
-									local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
-									local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
-
-									if onScreen then
-										tag.Visible = true
-										tag.Position = UDim2.new(0, pos.X, 0, pos.Y - offset)
+										if onScreen then
+											tag.Visible = true
+											tag.Position = UDim2.new(0, pos.X, 0, pos.Y - offset)
+										else
+											tag.Visible = false
+										end
 									else
 										tag.Visible = false
 									end
