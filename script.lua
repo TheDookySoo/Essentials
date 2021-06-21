@@ -1062,13 +1062,15 @@ local function AddESPToPlayer(plr)
 									
 									if switch_BoldTags.GetValue() == true then
 										tag.TextStrokeTransparency = 0
-										
+
 										local color = tag.TextColor3
-										local h, s, v = color:ToHSV()
-										
-										color = Color3.fromHSV((h + 0.5) % 1, s, (v + 0.5) % 1)
-										
-										tag.TextStrokeColor3 = color 
+										local v = (color.R + color.G + color.B) / 3
+
+										if v > 0.5 then
+											tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
+										else
+											tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
+										end
 									else
 										tag.TextStrokeTransparency = 0.9
 										tag.TextStrokeColor3 = Color3.new(0, 0, 0)
