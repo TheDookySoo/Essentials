@@ -2,419 +2,239 @@ local SCRIPT_ENABLED = true
 
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local MOUSE = LOCAL_PLAYER:GetMouse()
+local RNG = Random.new()
 
 local INPUT_SERVICE = game:GetService("UserInputService")
+local RUN_SERVICE = game:GetService("RunService")
+local TWEEN_SERVICE = game:GetService("TweenService")
 
-local APPLICATION_GUI_PARENT = game:GetService("RunService"):IsStudio() and game.Players.LocalPlayer.PlayerGui or game.CoreGui
-local APPLICATION_SIZE = UDim2.new(0, 380, 0, 274)
-local APPLICATION_MINIMIZED = false
+local APPLICATION_GUI_PARENT = game:GetService("RunService"):IsStudio() and LOCAL_PLAYER.PlayerGui or game.CoreGui
+local ALL_CONNECTIONS = {}
 
-local ELEMENT_CONTAINER_EXTRA_PADDING = 0
-local ELEMENT_CONTAINER_HEIGHT = 19
-local ELEMENT_TITLE_PADDING = 10
-local SLIDER_MAX_DECIMAL_PLACES = 2
+-- Application Theme (determines how the application gui will look, what font is used for text and what colors are used for things)
+local THEME = {}
+THEME.Element_Height = 19 -- The height of the containers of switch, buttons, sliders, etc.
+THEME.Element_Left_Padding = 180
+THEME.Element_Title_Left_Padding = 10
+THEME.Element_Title_Text_Size = 13
 
-local APPLICATION_THEME = {}
-do
-	APPLICATION_THEME.TextColor = Color3.fromRGB(255, 255, 255)
-	APPLICATION_THEME.Padding_TextColor = Color3.fromRGB(100, 120, 190)
+THEME.Folder_Handle_Height = 17
+THEME.Folder_Title_Left_Padding = 20
+THEME.Folder_Collapse_Left_Padding = 10
+THEME.Folder_Collapse_Button_Dimensions = Vector2.new(15, 15)
 
-	APPLICATION_THEME.TextFont_Standard = Enum.Font.Gotham
-	APPLICATION_THEME.TextFont_SemiBold = Enum.Font.GothamSemibold
-	APPLICATION_THEME.TextFont_Bold = Enum.Font.GothamBold
+THEME.Switch_Off_Color = Color3.fromRGB(30, 30, 30)
+THEME.Switch_On_Color = Color3.fromRGB(30, 120, 190)
+THEME.Switch_Knob_Color = Color3.fromRGB(220, 220, 220)
+THEME.Switch_Dimensions = Vector2.new(30, 13)
 
-	APPLICATION_THEME.Cursor_Color = Color3.new(1, 1, 1)
+THEME.Button_Background_Color = Color3.fromRGB(30, 30, 30)
+THEME.Button_Engaged_Color = Color3.fromRGB(30, 120, 190)
+THEME.Button_Dimensions = Vector2.new(100, 15)
+THEME.Button_Border_Rounding = 3
 
-	APPLICATION_THEME.Color_Light = Color3.fromRGB(45, 45, 45)
-	APPLICATION_THEME.Color_Medium = Color3.fromRGB(30, 30, 30)
-	APPLICATION_THEME.Color_Dark = Color3.fromRGB(15, 15, 15)
+THEME.Input_Background_Color = Color3.fromRGB(30, 30, 30)
+THEME.Input_Height = 15
+THEME.Input_Border_Rounding = 3
+THEME.Input_Text_Size = 12 
 
-	APPLICATION_THEME.Slider_Background_Color = Color3.fromRGB(60, 60, 60)
-	APPLICATION_THEME.Slider_Bar_Color = Color3.fromRGB(190, 190, 190)
+THEME.Output_Background_Color = Color3.fromRGB(30, 30, 30)
+THEME.Output_Background_Border_Rounding = 3
+THEME.Output_Background_Side_Padding = 10
+THEME.Output_Background_Vertical_Padding = 6
+THEME.Output_Background_Extra_Height = 2 -- Extra bit at the bottom of the background, doesn't affect top side
+THEME.Output_Label_Height = 16
+THEME.Output_Label_Left_Text_Padding = 4
+THEME.Output_Font = Enum.Font.Code
+THEME.Output_Text_Size = 14
 
-	APPLICATION_THEME.Keybind_Engaged_Color = Color3.fromRGB(110, 40, 40)
-	APPLICATION_THEME.Keybind_NotEngaged_Color = Color3.fromRGB(30, 30, 30)
+THEME.Keybind_Height = 15
+THEME.Keybind_Background_Color = Color3.fromRGB(30, 30, 30)
+THEME.Keybind_Engaged_Color = Color3.fromRGB(30, 120, 190)
+THEME.Keybind_Border_Rounding = 3
+THEME.Keybind_Text_Size = 12
 
-	APPLICATION_THEME.Button_Engaged_Color = Color3.fromRGB(110, 40, 40)
-	APPLICATION_THEME.Button_NotEngaged_Color = Color3.fromRGB(30, 30, 30)
+THEME.Font_Regular = Enum.Font.Gotham
+THEME.Font_SemiBold = Enum.Font.GothamSemibold
+THEME.Font_Bold = Enum.Font.GothamBold
 
-	APPLICATION_THEME.Input_Background_Color = Color3.fromRGB(30, 30, 30)
+THEME.Text_Color = Color3.fromRGB(255, 255, 255)
 
-	APPLICATION_THEME.Switch_Background_Color = Color3.fromRGB(60, 60, 60)
-	APPLICATION_THEME.Switch_Knob_Color = Color3.fromRGB(220, 220, 220)
-	APPLICATION_THEME.Switch_Off_Color = Color3.fromRGB(30, 30, 30)
-	APPLICATION_THEME.Switch_On_Color = Color3.fromRGB(30, 120, 190)
-end
+THEME.Window_Handle_Color = Color3.fromRGB(60, 60, 60)
+THEME.Window_Background_Color = Color3.fromRGB(45, 45, 45)
+THEME.Folder_Title_Color = Color3.fromRGB(100, 120, 220)
 
--- Functions
+-- Misc. Functions
 local function Lerp(start, finish, alpha)
 	return start * (1 - alpha) + (finish * alpha)
 end
 
--- Gui Functions
-local function CreateGui(parent, name, resetOnSpawn, ignoreGuiInset)
-	local gui = Instance.new("ScreenGui", parent)
-	gui.Name = name
+local function StringToNumber(str, returnValueIfNotValid)
+	local ret = returnValueIfNotValid ~= nil and returnValueIfNotValid or 0
+	return typeof(tonumber(str)) == "number" and tonumber(str) or ret
+end
 
-	gui.IgnoreGuiInset = ignoreGuiInset
-	gui.ResetOnSpawn = resetOnSpawn
+local function RoundNumber(number, decimalPlaces)
+	local multiplier = 10 ^ decimalPlaces
+
+	return math.floor(number * multiplier + 0.5) / multiplier
+end
+
+-- Core Gui Elements
+local function CreateGui()
+	local gui = Instance.new("ScreenGui", APPLICATION_GUI_PARENT)
+	gui.Name = ""
+	gui.ResetOnSpawn = false
 
 	return gui
 end
 
-local function AddPadding(parent, size, text)
-	local paddingText = text ~= nil and text or ""
-
-	local padding = Instance.new("TextButton", parent)
-	padding.Name = "Padding"
+local function CreatePadding(parent, height)
+	local padding = Instance.new("Frame", parent)
+	padding.Name = ""
+	padding.Size = UDim2.new(1, 0, 0, height)
 	padding.BackgroundTransparency = 1
-	padding.BorderSizePixel = 0
-	padding.Size = UDim2.new(1, 0, 0, size)
-	padding.Font = APPLICATION_THEME.TextFont_SemiBold
-	padding.TextColor3 = APPLICATION_THEME.Padding_TextColor
-	padding.TextSize = 12
-	padding.TextXAlignment = Enum.TextXAlignment.Left
-	padding.TextYAlignment = Enum.TextYAlignment.Bottom
-	padding.Text = "  " .. paddingText
 
 	return padding
 end
 
-local function CreateFrame(parent, name, borderRounding, size, position, anchorPoint, color)
-	local frame_Position = position ~= nil and position or UDim2.new(0, 0, 0, 0)
-	local frame_AnchorPoint = anchorPoint ~= nil and anchorPoint or Vector2.new(0, 0)
+local function CreateFrame(parent, size, position, anchorPoint, color, borderRounding)
+	if size           == nil then size           = UDim2.new(0, 0, 0, 0) end
+	if position       == nil then position       = UDim2.new(0, 0, 0, 0) end
+	if anchorPoint    == nil then anchorPoint    = Vector2.new(0, 0)     end
+	if color          == nil then color          = Color3.new(1, 1, 1)   end
+	if borderRounding == nil then borderRounding = 0                     end
 
 	local frame = Instance.new("ImageLabel", parent)
-	frame.Name = name
+	frame.Name = ""
 	frame.Image = "rbxassetid://3570695787"
-	frame.ImageColor3 = color == nil and APPLICATION_THEME.Color_Light or color
+	frame.ImageColor3 = color
+	frame.BackgroundTransparency = 1
+	frame.Active = true
+
 	frame.ScaleType = Enum.ScaleType.Slice
 	frame.SliceCenter = Rect.new(Vector2.new(100, 100), Vector2.new(100, 100))
 	frame.SliceScale = 0.01 * borderRounding
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel = 0
-	frame.Active = true
+
+	if frame.SliceScale == 0 then frame.SliceScale = 0.001 end -- Prevent weird thing from happening
 
 	frame.Size = size
-	frame.Position = frame_Position
-	frame.AnchorPoint = frame_AnchorPoint
+	frame.Position = position
+	frame.AnchorPoint = anchorPoint
 
 	return frame
 end
 
-local function CreateDragHandle(parent, attachedGui, name, size, position, anchorPoint, text)
-	local handle_Size = size ~= nil and size or UDim2.new(1, 0, 1, 0)
-	local handle_Position = position ~= nil and position or UDim2.new(0, 0, 0, 0)
-	local handle_AnchorPoint = anchorPoint ~= nil and anchorPoint or Vector2.new(0, 0)
-
-	local handle = Instance.new("TextButton", parent)
-	handle.Name = name
-	handle.Size = handle_Size
-	handle.Position = handle_Position
-	handle.AnchorPoint = handle_AnchorPoint
-	handle.BackgroundTransparency = 1
-	handle.Text = "  " .. text
-	handle.TextSize = 14
-	handle.Font = APPLICATION_THEME.TextFont_SemiBold
-	handle.TextXAlignment = Enum.TextXAlignment.Left
-	handle.TextColor3 = APPLICATION_THEME.TextColor
-
-	local border = Instance.new("Frame", handle)
-	border.Name = "TitleBorder"
-	border.Size = UDim2.new(1, 0, 0, 1)
-	border.Position = UDim2.new(0.5, 0, 0, 20)
-	border.AnchorPoint = Vector2.new(0.5, 0)
-	border.BorderSizePixel = 0
-	border.Active = false
-
-	local titleBorder_Gradient = Instance.new("UIGradient", border)
-	border.BackgroundColor3 = Color3.new(1, 1, 1)
-	titleBorder_Gradient.Transparency = NumberSequence.new{
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.05, 0.5),
-		NumberSequenceKeypoint.new(0.95, 0.5),
-		NumberSequenceKeypoint.new(1, 1)
-	}
-
-	local closeButton = Instance.new("ImageButton", handle)
-	closeButton.Name = "CloseButton"
-	closeButton.Image = "rbxassetid://4389749368"
-	closeButton.Size = UDim2.new(0, 12, 0, 12)
-	closeButton.AnchorPoint = Vector2.new(0, 0.5)
-	closeButton.BackgroundTransparency = 1
-	closeButton.AutoButtonColor = false
-	closeButton.Position = UDim2.new(1, -18, 0.5, 0)
-
-	local miniButton = Instance.new("ImageButton", handle)
-	miniButton.Name = "MinimizeButton"
-	miniButton.Image = "rbxassetid://4530358017"
-	miniButton.Size = UDim2.new(0, 12, 0, 12)
-	miniButton.AnchorPoint = Vector2.new(0, 0.5)
-	miniButton.BackgroundTransparency = 1
-	miniButton.AutoButtonColor = false
-	miniButton.Position = UDim2.new(1, -37, 0.5, 0)
-
-	-- Enable Disable
-	miniButton.MouseButton1Click:Connect(function()
-		if APPLICATION_MINIMIZED then
-			APPLICATION_MINIMIZED = false
-
-			--parent.Visible = true
-			--parent.Size = UDim2.new(0, APPLICATION_SIZE.X, 0, APPLICATION_SIZE.Y)
-		else
-			APPLICATION_MINIMIZED = true
-
-			--parent.Visible = false
-			--parent.Size = UDim2.new(0, APPLICATION_SIZE.X, 0, ELEMENT_CONTAINER_HEIGHT)
-
-			-- localPlayer.CameraMinZoomDistance = before_CameraMinZoom
-			-- localPlayer.CameraMaxZoomDistance = before_CameraMaxZoom
-		end
-	end)
-
-	closeButton.MouseButton1Click:Connect(function()
-		SCRIPT_ENABLED = false
-		attachedGui:Destroy()
-	end)
-
-
-
-	local dragging = false
-
-	handle.MouseButton1Down:Connect(function()
-		dragging = true
-
-		local dragStartOffset = Vector2.new(MOUSE.X, MOUSE.Y) - handle.AbsolutePosition
-
-		repeat
-			parent.Position = UDim2.new(0, MOUSE.X - dragStartOffset.X, 0, MOUSE.Y - dragStartOffset.Y)
-
-			game:GetService("RunService").RenderStepped:Wait()
-		until dragging == false
-	end)
-
-	handle.MouseButton1Up:Connect(function()
-		dragging = false
-	end)
-
-	return handle
-end
-
-local function CreateScrollingFrame(parent, name, size, position, anchorPoint, padding)
-	local container_Position = position ~= nil and position or UDim2.new(0, 0, 0, 0)
-	local container_AnchorPoint = anchorPoint ~= nil and anchorPoint or Vector2.new(0, 0)
+local function CreateScrollingFrame(parent, size, position, anchorPoint, elementPadding, bottomPadding)
+	if size           == nil then size           = UDim2.new(0, 0, 0, 0) end
+	if position       == nil then position       = UDim2.new(0, 0, 0, 0) end
+	if anchorPoint    == nil then anchorPoint    = Vector2.new(0, 0)     end
+	if elementPadding == nil then elementPadding = 0                     end
+	if bottomPadding  == nil then bottomPadding  = 0                     end
 
 	local container = Instance.new("ScrollingFrame", parent)
-	container.Name = name
+	container.Name = ""
 	container.BorderSizePixel = 0
 	container.BackgroundTransparency = 1
 	container.ScrollingEnabled = true
 	container.Size = size
-	container.Position = container_Position
-	container.AnchorPoint = container_AnchorPoint
+	container.Position = position
+	container.AnchorPoint = anchorPoint
 	container.BottomImage = container.MidImage
 	container.TopImage = container.MidImage
 	container.ScrollBarThickness = 4
 
+	container.CanvasSize = UDim2.new(0, 0, 0, elementPadding + bottomPadding) -- Just incase the padding is massive
+
 	local list = Instance.new("UIListLayout", container)
+	list.Name = ""
 	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.Padding = UDim.new(0, padding)
+	list.Padding = UDim.new(0, elementPadding)
 
-	local scrolling = false
-	local engaged = false
+	local function CalculateSize()
+		container.CanvasSize = UDim2.new(0, 0, 0, list.AbsoluteContentSize.Y + bottomPadding)
+	end
 
-	container.CanvasSize = UDim2.new(0, 0, 0, ELEMENT_CONTAINER_EXTRA_PADDING)
+	local c1 = container.ChildAdded:Connect(function(c)
+		CalculateSize()
 
-	container.ChildAdded:Connect(function(c)
 		pcall(function()
-			wait()
-			container.CanvasSize = UDim2.new(0, 0, 0, list.AbsoluteContentSize.Y + c.AbsoluteSize.Y + ELEMENT_CONTAINER_EXTRA_PADDING)
+			local c2 = c:GetPropertyChangedSignal("Size"):Connect(function()
+				CalculateSize()
+			end)
+
+			table.insert(ALL_CONNECTIONS, c2)
 		end)
 	end)
 
-	container.ChildRemoved:Connect(function(c)
-		pcall(function()
-			wait()
-			container.CanvasSize = UDim2.new(0, 0, 0, list.AbsoluteContentSize.Y - c.AbsoluteSize.Y + ELEMENT_CONTAINER_EXTRA_PADDING)
-		end)
+	local c3 = container.ChildRemoved:Connect(function(c)
+		CalculateSize()
 	end)
+
+	table.insert(ALL_CONNECTIONS, c1)
+	table.insert(ALL_CONNECTIONS, c3)
 
 	return container
 end
 
--- Elements
-local function CreateSlider(parent, name, titleText, min, max, defaultValue, inputSuffix)
-	local suffix = inputSuffix ~= nil and inputSuffix or ""
+local function CreateSwitch(parent, title, onByDefault)
+	local container = Instance.new("Frame", parent)
+	container.Name = ""
+	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
+	container.BackgroundTransparency = 1
 
-	local elementContainer = Instance.new("Frame", parent)
-	elementContainer.Name = "ElementContainer"
-	elementContainer.BackgroundTransparency = 1
-	elementContainer.Size = UDim2.new(1, 0, 0, ELEMENT_CONTAINER_HEIGHT)
+	local titleLabel = Instance.new("TextLabel", container)
+	titleLabel.Name = ""
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
+	titleLabel.Position = UDim2.new(1, 0, 0, 0)
+	titleLabel.AnchorPoint = Vector2.new(1, 0)
+	titleLabel.Font = THEME.Font_SemiBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextColor3 = THEME.Text_Color
+	titleLabel.TextSize = THEME.Element_Title_Text_Size
+	titleLabel.Text = title
 
-	local elementTitle = Instance.new("TextLabel", elementContainer)
-	elementTitle.Name = "Title"
-	elementTitle.Size = UDim2.new(1, -ELEMENT_TITLE_PADDING, 1, 0)
-	elementTitle.Position = UDim2.new(1, 0, 0, 0)
-	elementTitle.AnchorPoint = Vector2.new(1, 0)
-	elementTitle.BackgroundTransparency = 1
-	elementTitle.TextColor3 = APPLICATION_THEME.TextColor
-	elementTitle.TextXAlignment = Enum.TextXAlignment.Left
-	elementTitle.Font = APPLICATION_THEME.TextFont_SemiBold
-	elementTitle.TextSize = 13
-	elementTitle.Text = titleText
+	local switchBackground = CreateFrame(
+		container,
+		UDim2.new(0, THEME.Switch_Dimensions.X, 0, THEME.Switch_Dimensions.Y),
+		UDim2.new(0, THEME.Element_Left_Padding, 0.5, 0),
+		Vector2.new(0, 0.5),
+		THEME.Switch_Off_Color,
+		math.floor(THEME.Switch_Dimensions.Y / 2) + 1
+	)
 
-	-- Element
-	local sliderBackground = CreateFrame(elementContainer, "SliderBackground", 3, UDim2.new(1, -180, 0, 7), UDim2.new(1, -10, 0.5, 0), Vector2.new(1, 0.5), APPLICATION_THEME.Slider_Background_Color)
-	local sliderBar = CreateFrame(sliderBackground, "SliderBar", 3, UDim2.new(Lerp(0, 1, (defaultValue - min) / (max - min)), 0, 1, 0), UDim2.new(0, 0, 0, 0), Vector2.new(0, 0), APPLICATION_THEME.Slider_Bar_Color)
-
-	local sliderClickBox = Instance.new("TextButton", sliderBackground)
-	sliderClickBox.Name = "ClickBox"
-	sliderClickBox.BackgroundTransparency = 1
-	sliderClickBox.Text = ""
-	sliderClickBox.Size = UDim2.new(1, 0, 1, 0)
-
-	local valueTextLabel = Instance.new("TextLabel", sliderClickBox)
-	valueTextLabel.Name = "ValueLabel"
-	valueTextLabel.BackgroundTransparency = 1
-	valueTextLabel.Size = UDim2.new(0, 1000, 0, 14)
-	valueTextLabel.Font = APPLICATION_THEME.TextFont_SemiBold
-	valueTextLabel.TextSize = 12
-	valueTextLabel.TextColor3 = APPLICATION_THEME.TextColor
-	valueTextLabel.TextTransparency = 1
-	valueTextLabel.Text = ""
-
-	-- Functionality
-	local mouseDown = false
-	local currentValue = defaultValue
-
-	sliderClickBox.MouseButton1Down:Connect(function()
-		mouseDown = true
-
-		do
-			local goal = {}
-			goal.TextTransparency = 0
-
-			local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut)
-
-			local tween = game:GetService("TweenService"):Create(valueTextLabel, tweenInfo, goal)
-			tween:Play()
-		end
-
-		repeat
-			local dt = game:GetService("RunService").RenderStepped:Wait()
-
-			local alpha = (MOUSE.X - sliderClickBox.AbsolutePosition.X) / sliderClickBox.AbsoluteSize.X
-			alpha = math.clamp(alpha, 0, 1)
-
-			sliderBar.Size = UDim2.new(Lerp(sliderBar.Size.X.Scale, alpha, 1 - (0.0000001 ^ dt)), 0, 1, 0)
-
-			-- Label
-			local realAlpha = sliderBar.AbsoluteSize.X / sliderBackground.AbsoluteSize.X
-			local realValue = Lerp(min, max, sliderBar.AbsoluteSize.X / sliderBackground.AbsoluteSize.X)
-			local realValueShortened = math.floor((realValue * (10 ^ SLIDER_MAX_DECIMAL_PLACES)) + 0.5) / (10 ^ SLIDER_MAX_DECIMAL_PLACES)
-
-			currentValue = realValue
-			valueTextLabel.Text = realValueShortened .. suffix
-
-			valueTextLabel.AnchorPoint = Vector2.new(0.5, 0)
-			valueTextLabel.Position = UDim2.new(realAlpha, 0, 1, 4)
-			valueTextLabel.ZIndex = 100
-		until mouseDown == false
-
-		do
-			local goal = {}
-			goal.TextTransparency = 1
-
-			local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut)
-
-			local tween = game:GetService("TweenService"):Create(valueTextLabel, tweenInfo, goal)
-			tween:Play()
-		end
-	end)
-
-	game:GetService("UserInputService").InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			mouseDown = false
-			wait(0.25)
-			valueTextLabel.ZIndex = 1
-		end
-	end)
-
-	-- Return
-	local t = {}
-
-	function t.GetValue()
-		return currentValue
-	end
-
-	return t
-end
-
-local function CreateSwitch(parent, name, titleText, onByDefault)
-	local elementContainer = Instance.new("Frame", parent)
-	elementContainer.Name = "ElementContainer"
-	elementContainer.BackgroundTransparency = 1
-	elementContainer.Size = UDim2.new(1, 0, 0, ELEMENT_CONTAINER_HEIGHT)
-
-	local elementTitle = Instance.new("TextLabel", elementContainer)
-	elementTitle.Name = "Title"
-	elementTitle.Size = UDim2.new(1, -ELEMENT_TITLE_PADDING, 1, 0)
-	elementTitle.Position = UDim2.new(1, 0, 0, 0)
-	elementTitle.AnchorPoint = Vector2.new(1, 0)
-	elementTitle.BackgroundTransparency = 1
-	elementTitle.TextColor3 = APPLICATION_THEME.TextColor
-	elementTitle.TextXAlignment = Enum.TextXAlignment.Left
-	elementTitle.Font = APPLICATION_THEME.TextFont_SemiBold
-	elementTitle.TextSize = 13
-	elementTitle.Text = titleText
-
-	-- Element
-	local backgroundColor = onByDefault and APPLICATION_THEME.Switch_On_Color or APPLICATION_THEME.Switch_Off_Color
-
-	local switchBackground = CreateFrame(elementContainer, "SliderBackground", 7, UDim2.new(0, 30, 0, 13), UDim2.new(0, 170, 0.5, 0), Vector2.new(0, 0.5), backgroundColor)
+	local knobWidth = THEME.Switch_Dimensions.Y - 2
 
 	local knob = Instance.new("ImageLabel", switchBackground)
-	knob.Name = "Knob"
+	knob.Name = ""
 	knob.Image = "rbxassetid://3570695787"
 	knob.BackgroundTransparency = 1
-	knob.ImageColor3 = APPLICATION_THEME.Switch_Knob_Color
-	knob.Size = UDim2.new(0, 11, 0, 11)
+	knob.ImageColor3 = THEME.Switch_Knob_Color
+	knob.Size = UDim2.new(0, knobWidth, 0, knobWidth)
 	knob.Position = UDim2.new(0, 1, 0.5, 0)
 	knob.AnchorPoint = Vector2.new(0, 0.5)
 
 	local switchClickBox = Instance.new("TextButton", switchBackground)
-	switchClickBox.Name = "ClickBox"
+	switchClickBox.Name = ""
 	switchClickBox.BackgroundTransparency = 1
-	switchClickBox.Text = ""
 	switchClickBox.Size = UDim2.new(1, 0, 1, 0)
+	switchClickBox.Text = ""
 
 	-- Functionality
-	local switchUpdated = false
-	local switchOn = not onByDefault
+	local isOn = onByDefault
+	local valueChanged = false
 
-	local firstUpdate = false
-
-	local function UpdateSwitch()
-		switchOn = not switchOn
-
-		switchUpdated = true
-
-		if firstUpdate == false then
-			firstUpdate = true
-			switchUpdated = false
-		end
-
-
-
+	local function UpdateSwitchAppearance()
 		local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut)
 
-		if switchOn then
+		if isOn then
 			local goal_1 = {}
 			goal_1.AnchorPoint = Vector2.new(1, 0.5)
 			goal_1.Position = UDim2.new(1, -1, 0.5, 0)
 
 			local goal_2 = {}
-			goal_2.ImageColor3 = APPLICATION_THEME.Switch_On_Color
+			goal_2.ImageColor3 = THEME.Switch_On_Color
 
 			local tween_1 = game:GetService("TweenService"):Create(knob, tweenInfo, goal_1) tween_1:Play()
 			local tween_1 = game:GetService("TweenService"):Create(switchBackground, tweenInfo, goal_2) tween_1:Play()
@@ -424,383 +244,661 @@ local function CreateSwitch(parent, name, titleText, onByDefault)
 			goal_1.Position = UDim2.new(0, 1, 0.5, 0)
 
 			local goal_2 = {}
-			goal_2.ImageColor3 = APPLICATION_THEME.Switch_Off_Color
+			goal_2.ImageColor3 = THEME.Switch_Off_Color
 
 			local tween_1 = game:GetService("TweenService"):Create(knob, tweenInfo, goal_1) tween_1:Play()
 			local tween_1 = game:GetService("TweenService"):Create(switchBackground, tweenInfo, goal_2) tween_1:Play()
 		end
 	end
 
-	switchClickBox.MouseButton1Click:Connect(function()
-		UpdateSwitch()
+	local c1 = switchClickBox.MouseButton1Click:Connect(function()
+		isOn = not isOn
+		valueChanged = true
+
+		UpdateSwitchAppearance()
 	end)
 
-	UpdateSwitch()
+	table.insert(ALL_CONNECTIONS, c1)
 
-	-- Return
-	local t = {}
+	UpdateSwitchAppearance()
 
-	function t.ValueChanged()
-		local r = switchUpdated
-		switchUpdated = false
+	-- Switch class
+	local switch = {}
+
+	function switch.On()
+		return isOn
+	end
+
+	function switch.ValueChanged()
+		local r = valueChanged
+		valueChanged = false
 
 		return r
 	end
 
-	function t.GetValue()
-		return switchOn
-	end
-
-	return t
+	return switch
 end
 
-local function CreateKeybind(parent, name, titleText, defaultKeyCode) -- Allows you to set keybinds
-	local elementContainer = Instance.new("Frame", parent)
-	elementContainer.Name = "ElementContainer"
-	elementContainer.BackgroundTransparency = 1
-	elementContainer.Size = UDim2.new(1, 0, 0, ELEMENT_CONTAINER_HEIGHT)
+local function CreateButton(parent, title, buttonText)
+	local container = Instance.new("Frame", parent)
+	container.Name = ""
+	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
+	container.BackgroundTransparency = 1
 
-	local elementTitle = Instance.new("TextLabel", elementContainer)
-	elementTitle.Name = "Title"
-	elementTitle.Size = UDim2.new(1, -ELEMENT_TITLE_PADDING, 1, 0)
-	elementTitle.Position = UDim2.new(1, 0, 0, 0)
-	elementTitle.AnchorPoint = Vector2.new(1, 0)
-	elementTitle.BackgroundTransparency = 1
-	elementTitle.TextColor3 = APPLICATION_THEME.TextColor
-	elementTitle.TextXAlignment = Enum.TextXAlignment.Left
-	elementTitle.Font = APPLICATION_THEME.TextFont_SemiBold
-	elementTitle.TextSize = 13
-	elementTitle.Text = titleText
+	local titleLabel = Instance.new("TextLabel", container)
+	titleLabel.Name = ""
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
+	titleLabel.Position = UDim2.new(1, 0, 0, 0)
+	titleLabel.AnchorPoint = Vector2.new(1, 0)
+	titleLabel.Font = THEME.Font_SemiBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextColor3 = THEME.Text_Color
+	titleLabel.TextSize = THEME.Element_Title_Text_Size
+	titleLabel.Text = title
 
-	local background = CreateFrame(elementContainer, "Background", 5, UDim2.new(0, 90, 0, 15), UDim2.new(0, 170, 0.5, 0), Vector2.new(0, 0.5))
-	background.Name = "Background"
-	background.ImageColor3 = APPLICATION_THEME.Keybind_NotEngaged_Color
+	local buttonFrame = CreateFrame(
+		container,
+		UDim2.new(0, THEME.Button_Dimensions.X, 0, THEME.Button_Dimensions.Y),
+		UDim2.new(0, THEME.Element_Left_Padding, 0.5, 0),
+		Vector2.new(0, 0.5),
+		THEME.Button_Background_Color,
+		THEME.Button_Border_Rounding
+	)
 
-	local clickBox = Instance.new("TextButton", background)
-	clickBox.Name = "ClickBox"
+	local clickBox = Instance.new("TextButton", buttonFrame)
+	clickBox.Name = ""
 	clickBox.BackgroundTransparency = 1
-	clickBox.Font = APPLICATION_THEME.TextFont_SemiBold
+	clickBox.Font = THEME.Font_SemiBold
 	clickBox.TextSize = 12
 	clickBox.Size = UDim2.new(1, 0, 1, 0)
-	clickBox.TextColor3 = APPLICATION_THEME.TextColor
-	clickBox.Text = string.sub(tostring(defaultKeyCode), 14, string.len(tostring(defaultKeyCode)))
+	clickBox.TextColor3 = THEME.Text_Color
+	clickBox.Text = buttonText
 
 	-- Functionality
-	local engaged = false
+	local pressCount = 0
 
-	local function Update(keyName, isEngaged)
-		local textWidth = game:GetService("TextService"):GetTextSize(keyName, 12, APPLICATION_THEME.TextFont_SemiBold, Vector2.new(math.huge, math.huge)).X
-		background.Size = UDim2.new(0, textWidth + 14, 0, 15)
+	local c1 = clickBox.MouseButton1Click:Connect(function()
+		pressCount = pressCount + 1
 
-		if isEngaged then
-			background.ImageColor3 = APPLICATION_THEME.Keybind_Engaged_Color
-		else
-			background.ImageColor3 = APPLICATION_THEME.Keybind_NotEngaged_Color
-		end
+		buttonFrame.ImageColor3 = THEME.Button_Background_Color
+		wait()
+		buttonFrame.ImageColor3 = THEME.Button_Engaged_Color
+	end)
+
+	local c2 = clickBox.MouseEnter:Connect(function()
+		buttonFrame.ImageColor3 = THEME.Button_Engaged_Color
+	end)
+
+	local c3 = clickBox.MouseLeave:Connect(function()
+		buttonFrame.ImageColor3 = THEME.Button_Background_Color
+	end)
+
+	table.insert(ALL_CONNECTIONS, c1)
+	table.insert(ALL_CONNECTIONS, c2)
+	table.insert(ALL_CONNECTIONS, c3)
+
+	-- Button class
+	local button = {}
+
+	function button.GetPressCount()
+		local r = pressCount
+		pressCount = 0
+
+		return r
 	end
 
-	Update(clickBox.Text, engaged)
+	return button
+end
 
-	game:GetService("UserInputService").InputBegan:Connect(function(key)
+local function CreateInput(parent, title, default)
+	if default == nil then default = "Enter here" end
+
+	local container = Instance.new("Frame", parent)
+	container.Name = ""
+	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
+	container.BackgroundTransparency = 1
+
+	local titleLabel = Instance.new("TextLabel", container)
+	titleLabel.Name = ""
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
+	titleLabel.Position = UDim2.new(1, 0, 0, 0)
+	titleLabel.AnchorPoint = Vector2.new(1, 0)
+	titleLabel.Font = THEME.Font_SemiBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextColor3 = THEME.Text_Color
+	titleLabel.TextSize = THEME.Element_Title_Text_Size
+	titleLabel.Text = title
+
+	local backgroundWidth = parent.AbsoluteSize.X - THEME.Element_Left_Padding - 8
+
+	local background = CreateFrame(
+		container,
+		UDim2.new(0, backgroundWidth, 0, THEME.Input_Height),
+		UDim2.new(0, THEME.Element_Left_Padding, 0.5, 0),
+		Vector2.new(0, 0.5),
+		THEME.Input_Background_Color,
+		THEME.Input_Border_Rounding
+	)
+
+	local inputTextBox = Instance.new("TextBox", background)
+	inputTextBox.Name = ""
+	inputTextBox.BackgroundTransparency = 1
+	inputTextBox.Size = UDim2.new(1, -4, 0, THEME.Input_Text_Size)
+	inputTextBox.Position = UDim2.new(1, 0, 0.5, 0)
+	inputTextBox.AnchorPoint = Vector2.new(1, 0.5)
+	inputTextBox.Font = THEME.Font_SemiBold
+	inputTextBox.TextSize = THEME.Input_Text_Size
+	inputTextBox.TextColor3 = THEME.Text_Color
+	inputTextBox.TextXAlignment = Enum.TextXAlignment.Left
+	inputTextBox.TextScaled = true
+	inputTextBox.Text = default
+
+	-- Functionality
+	local textChanged = false
+	local previousText = inputTextBox.Text
+
+	local c1 = inputTextBox.FocusLost:Connect(function()
+		if previousText ~= inputTextBox.Text then
+			textChanged = true
+		end
+
+		previousText = inputTextBox.Text
+	end)
+
+	table.insert(ALL_CONNECTIONS, c1)
+
+	-- Input class
+	local input = {}
+
+	function input.GetInputText()
+		return inputTextBox.Text
+	end
+
+	function input.GetInputTextAsNumber()
+		local n = tonumber(inputTextBox.Text)
+
+		return n == nil and 0 or n
+	end
+
+	function input.InputChanged()
+		local r = textChanged
+		textChanged = false
+
+		return r
+	end
+
+	return input
+end
+
+local function CreateKeybind(parent, title, defaultKeyCode)
+	local container = Instance.new("Frame", parent)
+	container.Name = ""
+	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
+	container.BackgroundTransparency = 1
+
+	local titleLabel = Instance.new("TextLabel", container)
+	titleLabel.Name = ""
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
+	titleLabel.Position = UDim2.new(1, 0, 0, 0)
+	titleLabel.AnchorPoint = Vector2.new(1, 0)
+	titleLabel.Font = THEME.Font_SemiBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextColor3 = THEME.Text_Color
+	titleLabel.TextSize = THEME.Element_Title_Text_Size
+	titleLabel.Text = title
+
+	local background = CreateFrame(
+		container,
+		nil,
+		UDim2.new(0, THEME.Element_Left_Padding, 0.5, 0),
+		Vector2.new(0, 0.5),
+		THEME.Keybind_Background_Color,
+		THEME.Keybind_Border_Rounding
+	)
+
+	local textButton = Instance.new("TextButton", background)
+	textButton.Name = ""
+	textButton.Size = UDim2.new(1, 0, 1, 0)
+	textButton.BackgroundTransparency = 1
+	textButton.Font = THEME.Font_SemiBold
+	textButton.TextColor3 = THEME.Text_Color
+	textButton.TextSize = THEME.Keybind_Text_Size
+
+	-- Functionality
+	local keyCodeName = string.sub(tostring(defaultKeyCode), 14, string.len(tostring(defaultKeyCode)))
+	local engaged = false
+
+	local function Update()
+		local textWidth = game:GetService("TextService"):GetTextSize(keyCodeName, THEME.Keybind_Text_Size, THEME.Font_SemiBold, Vector2.new(math.huge, math.huge)).X
+		background.Size = UDim2.new(0, textWidth + 12, 0, THEME.Keybind_Height)
+		textButton.Text = keyCodeName
+	end
+
+	local c1 = textButton.MouseButton1Click:Connect(function()
+		engaged = true
+		background.ImageColor3 = THEME.Keybind_Engaged_Color
+	end)
+
+	local c2 = INPUT_SERVICE.InputBegan:Connect(function(key)
 		if engaged then
-			local keyName = tostring(key.KeyCode)
-			keyName = string.sub(keyName, 14, string.len(keyName))
+			engaged = false
+			background.ImageColor3 = THEME.Keybind_Background_Color
 
-			if keyName ~= "Unknown" then
-				engaged = false
-				clickBox.Text = keyName
+			keyCodeName = string.sub(tostring(key.KeyCode), 14, string.len(tostring(key.KeyCode)))
 
-				-- Tween
-				Update(keyName, engaged)
+			if keyCodeName ~= "Unknown" then
+				Update()
 			end
 		end
 	end)
 
-	clickBox.MouseButton1Click:Connect(function()
-		engaged = true
+	table.insert(ALL_CONNECTIONS, c1)
+	table.insert(ALL_CONNECTIONS, c2)
 
-		-- Tween
-		Update(clickBox.Text, engaged)
-	end)
+	Update()
 
-	-- Return
-	local t = {}
+	-- Keybind class
+	local keybind = {}
 
-	function t.GetKeyCode()
-		return Enum.KeyCode[clickBox.Text]
+	function keybind.GetKeyCode()
+		return Enum.KeyCode[keyCodeName]
 	end
 
-	return t
+	return keybind
 end
 
-local function CreateButton(parent, name, titleText, buttonText) -- Allows you to set keybinds
-	local elementContainer = Instance.new("Frame", parent)
-	elementContainer.Name = "ElementContainer"
-	elementContainer.BackgroundTransparency = 1
-	elementContainer.Size = UDim2.new(1, 0, 0, ELEMENT_CONTAINER_HEIGHT)
+local function CreateOutput(parent, labelCount)
+	if labelCount == nil then labelCount = 1 end
 
-	local elementTitle = Instance.new("TextLabel", elementContainer)
-	elementTitle.Name = "Title"
-	elementTitle.Size = UDim2.new(1, -ELEMENT_TITLE_PADDING, 1, 0)
-	elementTitle.Position = UDim2.new(1, 0, 0, 0)
-	elementTitle.AnchorPoint = Vector2.new(1, 0)
-	elementTitle.BackgroundTransparency = 1
-	elementTitle.TextColor3 = APPLICATION_THEME.TextColor
-	elementTitle.TextXAlignment = Enum.TextXAlignment.Left
-	elementTitle.Font = APPLICATION_THEME.TextFont_SemiBold
-	elementTitle.TextSize = 13
-	elementTitle.Text = titleText
+	local backgroundHeight = THEME.Output_Label_Height * labelCount
 
-	local button = CreateFrame(elementContainer, "ButtonBackground", 4, UDim2.new(0, 90, 0, 15), UDim2.new(0, 170, 0.5, 0), Vector2.new(0, 0.5))
-	button.ImageColor3 = APPLICATION_THEME.Button_NotEngaged_Color
+	local container = Instance.new("Frame", parent)
+	container.Name = ""
+	container.Size = UDim2.new(1, 0, 0, backgroundHeight + THEME.Output_Background_Vertical_Padding)
+	container.BackgroundTransparency = 1
 
-	local clickBox = Instance.new("TextButton", button)
-	clickBox.Name = "ClickBox"
-	clickBox.BackgroundTransparency = 1
-	clickBox.Font = APPLICATION_THEME.TextFont_SemiBold
-	clickBox.TextSize = 12
-	clickBox.Size = UDim2.new(1, 0, 1, 0)
-	clickBox.TextColor3 = APPLICATION_THEME.TextColor
-	clickBox.Text = buttonText
+	local background = CreateFrame(
+		container,
+		UDim2.new(1, -THEME.Output_Background_Side_Padding, 0, backgroundHeight + THEME.Output_Background_Extra_Height),
+		UDim2.new(0.5, 0, 0.5, THEME.Output_Background_Extra_Height / 2),
+		Vector2.new(0.5, 0.5),
+		THEME.Output_Background_Color,
+		THEME.Output_Background_Border_Rounding
+	)
 
-	-- Functionality
-	local pressed = false
-	local mouseEnter = false
+	local labels = {}
 
-	clickBox.MouseEnter:Connect(function()
-		button.ImageColor3 = APPLICATION_THEME.Button_Engaged_Color
-		mouseEnter = true
-	end)
-
-	clickBox.MouseLeave:Connect(function()
-		button.ImageColor3 = APPLICATION_THEME.Button_NotEngaged_Color
-		mouseEnter = false
-	end)
-
-	clickBox.MouseButton1Click:Connect(function()
-		pressed = true
-
-		button.ImageColor3 = APPLICATION_THEME.Button_NotEngaged_Color
-		wait()
-		button.ImageColor3 = APPLICATION_THEME.Button_Engaged_Color
-	end)
-
-	-- Return
-	local t = {}
-
-	function t.ButtonPressed()
-		local p = pressed
-		pressed = false
-
-		return p
-	end
-
-	function t.HoveringOver()
-		return mouseEnter
-	end
-
-	return t
-end
-
-local function CreateInput(parent, name, titleText, default) -- Allows the user to provide input
-	local elementContainer = Instance.new("Frame", parent)
-	elementContainer.Name = "ElementContainer"
-	elementContainer.BackgroundTransparency = 1
-	elementContainer.Size = UDim2.new(1, 0, 0, ELEMENT_CONTAINER_HEIGHT)
-
-	local elementTitle = Instance.new("TextLabel", elementContainer)
-	elementTitle.Name = "Title"
-	elementTitle.Size = UDim2.new(1, -ELEMENT_TITLE_PADDING, 1, 0)
-	elementTitle.Position = UDim2.new(1, 0, 0, 0)
-	elementTitle.AnchorPoint = Vector2.new(1, 0)
-	elementTitle.BackgroundTransparency = 1
-	elementTitle.TextColor3 = APPLICATION_THEME.TextColor
-	elementTitle.TextXAlignment = Enum.TextXAlignment.Left
-	elementTitle.Font = APPLICATION_THEME.TextFont_SemiBold
-	elementTitle.TextSize = 13
-	elementTitle.Text = titleText
-
-	local background = CreateFrame(elementContainer, "ButtonBackground", 4, UDim2.new(1, -180, 0, 15), UDim2.new(0, 170, 0.5, 0), Vector2.new(0, 0.5))
-	background.ImageColor3 = APPLICATION_THEME.Input_Background_Color
-
-	local inputBox = Instance.new("TextBox", background)
-	inputBox.Name = "InputBox"
-	inputBox.BackgroundTransparency = 1
-	inputBox.Font = APPLICATION_THEME.TextFont_SemiBold
-	inputBox.TextSize = 12
-	inputBox.Size = UDim2.new(1, -5, 1, 0)
-	inputBox.TextXAlignment = Enum.TextXAlignment.Left
-	inputBox.AnchorPoint = Vector2.new(1, 0)
-	inputBox.Position = UDim2.new(1, 0, 0, 0)
-	inputBox.TextColor3 = APPLICATION_THEME.TextColor
-	inputBox.Text = default ~= nil and default or "Enter Here"
-
-	-- Functionality
-	local textChanged = false
-	local previousText = inputBox.Text
-
-	inputBox.FocusLost:Connect(function()
-		if previousText ~= inputBox.Text then
-			textChanged = true
-		end
-
-		previousText = inputBox.Text
-	end)
-
-	-- Return
-	local t = {}
-
-	function t.InputChanged()
-		local v = textChanged
-		textChanged = false
-
-		return v
-	end
-
-	function t.GetText()
-		return inputBox.Text
-	end
-
-	function t.GetNumber()
-		return typeof(tonumber(inputBox.Text)) == "number" and tonumber(inputBox.Text) or 0
-	end
-
-	function t.SetText(t)
-		inputBox.Text = t
-	end
-
-	return t
-end
-
-local function CreateColorPicker(parent, name, titleText)
-	local elementContainer = Instance.new("Frame", parent)
-	elementContainer.Name = "ElementContainer"
-	elementContainer.BackgroundTransparency = 1
-	elementContainer.Size = UDim2.new(1, 0, 0, 160)
-
-	local elementTitle = Instance.new("TextLabel", elementContainer)
-	elementTitle.Name = "Title"
-	elementTitle.Size = UDim2.new(1, -ELEMENT_TITLE_PADDING, 1, 0)
-	elementTitle.Position = UDim2.new(1, 0, 0, 0)
-	elementTitle.AnchorPoint = Vector2.new(1, 0)
-	elementTitle.BackgroundTransparency = 1
-	elementTitle.TextColor3 = APPLICATION_THEME.TextColor
-	elementTitle.TextXAlignment = Enum.TextXAlignment.Left
-	elementTitle.Font = APPLICATION_THEME.TextFont_SemiBold
-	elementTitle.TextSize = 13
-	elementTitle.Text = titleText
-
-	-- Gradient Map
-	local backplate = Instance.new("Frame", elementContainer)
-	backplate.Name = "Backplate"
-	backplate.BorderSizePixel = 0
-	backplate.BackgroundColor3 = Color3.new(0, 0, 0)
-	backplate.Position = UDim2.new(0, 10, 0, 20)
-	backplate.Size = UDim2.new(0, 100, 0, 100)
-
-	local colorGradientBox = Instance.new("ImageLabel", backplate)
-	colorGradientBox.Name = "ColorGradientBox"
-	colorGradientBox.Image = "rbxassetid://1280017782"
-	colorGradientBox.Size = UDim2.new(1, 0, 1, 0)
-	colorGradientBox.Position = UDim2.new(0, 0, 0, 0)
-	colorGradientBox.Rotation = 90
-	colorGradientBox.BackgroundTransparency = 1
-
-	local whiteGradientBox = Instance.new("ImageLabel", backplate)
-	whiteGradientBox.Name = "WhiteGradientBox"
-	whiteGradientBox.Image = "rbxassetid://1280017782"
-	whiteGradientBox.ImageColor3 = Color3.new(1, 1, 1)
-	whiteGradientBox.Size = UDim2.new(1, 0, 1, 0)
-	whiteGradientBox.Position = UDim2.new(0, 0, 0, 0)
-	whiteGradientBox.BackgroundTransparency = 1
-
-	local blackGradientBox = Instance.new("ImageLabel", backplate)
-	blackGradientBox.Name = "BlackGradientBox"
-	blackGradientBox.Image = "rbxassetid://1280017782"
-	blackGradientBox.ImageColor3 = Color3.new(0, 0, 0)
-	blackGradientBox.Size = UDim2.new(1, 0, 1, 0)
-	blackGradientBox.Position = UDim2.new(0, 0, 0, 0)
-	blackGradientBox.Rotation = -90
-	blackGradientBox.BackgroundTransparency = 1
-
-	-- Color Map
-	local backplate2 = Instance.new("Frame", elementContainer)
-	backplate2.Name = "Backplate2"
-	backplate2.BorderSizePixel = 0
-	backplate2.BackgroundColor3 = Color3.new(0, 0, 0)
-	backplate2.Position = UDim2.new(0, 115, 0, 20)
-	backplate2.Size = UDim2.new(0, 100, 0, 100)
-
-	local colorMap = Instance.new("ImageLabel", backplate2)
-	colorMap.Name = "ColorMap"
-	colorMap.Image = "rbxassetid://5425155739"
-	colorMap.Size = UDim2.new(1, 0, 1, 0)
-	colorMap.Position = UDim2.new(0, 0, 0, 0)
-	colorMap.BackgroundTransparency = 1
-
-	local desaturatedMap = Instance.new("ImageLabel", backplate2)
-	desaturatedMap.Name = "DesaturatedMap"
-	desaturatedMap.Image = "rbxassetid://5425157396"
-	desaturatedMap.Size = UDim2.new(1, 0, 1, 0)
-	desaturatedMap.Position = UDim2.new(0, 0, 0, 0)
-	desaturatedMap.BackgroundTransparency = 1
-
-	spawn(function()
-		local t = 0
-		local t2 = 0
-
-		while true do
-			local dt = game:GetService("RunService").RenderStepped:Wait()
-			t = t + (dt / 2) if t > 1 then t = 0 end
-			t2 = t2 + (dt * 2)
-
-			colorGradientBox.ImageColor3 = Color3.fromHSV(t, 1, 1)
-
-			desaturatedMap.ImageTransparency = math.sin(t2) / 2 + 0.5
-		end
-	end)
-end
-
-local function CreateOutput(parent, name, elementCount) -- Allows the script to show the user info
-	local elementContainer = Instance.new("Frame", parent)
-	elementContainer.Name = "ElementContainer"
-	elementContainer.BackgroundTransparency = 1
-	elementContainer.Size = UDim2.new(1, 0, 0, 18 * elementCount + 6)
-
-	local background = CreateFrame(elementContainer, "ButtonBackground", 4, UDim2.new(1, -20, 0, 18 * elementCount), UDim2.new(0.5, 0, 0.5, 0), Vector2.new(0.5, 0.5))
-	background.ImageColor3 = APPLICATION_THEME.Input_Background_Color
-
-	local elements = {} -- Table which store the individual status text labels
-
-	for i = 1, elementCount do
-		local label = Instance.new("TextBox", background)
-		label.Name = "InputBox"
-		label.BackgroundTransparency = 1
-		label.Font = Enum.Font.Code --APPLICATION_THEME.TextFont_SemiBold
-		label.TextSize = 14
-		label.Size = UDim2.new(1, -5, 0, 15)
-		label.TextXAlignment = Enum.TextXAlignment.Left
+	for i = 1, labelCount do
+		local label = Instance.new("TextLabel", background)
+		label.Name = ""
+		label.Size = UDim2.new(1, -THEME.Output_Label_Left_Text_Padding, 0, THEME.Output_Label_Height)
+		label.Position = UDim2.new(1, 0, 0, THEME.Output_Label_Height * (i - 1))
 		label.AnchorPoint = Vector2.new(1, 0)
-		label.Position = UDim2.new(1, 0, 0, 18 * (i - 1) + 1)
-		label.TextColor3 = APPLICATION_THEME.TextColor
+		label.BackgroundTransparency = 1
+		label.Font = THEME.Output_Font
+		label.TextSize = THEME.Output_Text_Size
+		label.TextColor3 = THEME.Text_Color
+		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.Text = ""
 
-		table.insert(elements, label)
+		labels[i] = label
 	end
 
-	-- Return
-	local t = {}
+	-- Output class
+	local output = {}
 
-	function t.EditStatus(id, text)
-		elements[id].Text = text
+	function output.EditLabel(index, text)
+		if labels[index] then
+			labels[index].Text = text
+		end
 	end
 
+	function output.GetLabel(index)
+		return labels[index]
+	end
 
-
-	return t
+	return output
 end
 
--- Misc. Functions
+-- Complex Gui Features
+local function CreateWindow(parent, title, size)
+	local borderRounding = 3
+	local background = CreateFrame(parent, UDim2.new(0, size[1], 0, size[2]), nil, nil, THEME.Window_Background_Color, borderRounding)
+
+	-- Handle backgroud
+	local handleBackgroundRounding = CreateFrame(
+		background,
+		UDim2.new(1, 0, 0, borderRounding * 2),
+		nil,
+		nil,
+		THEME.Window_Handle_Color,
+		borderRounding
+	)
+
+	local handleBackground = CreateFrame(
+		background,
+		UDim2.new(1, 0, 0, 20 - borderRounding),
+		UDim2.new(0, 0, 0, borderRounding),
+		nil,
+		THEME.Window_Handle_Color,
+		0
+	)
+
+	handleBackgroundRounding.ZIndex = 2
+	handleBackground.ZIndex = 2
+
+	-- Title also acts as the handle with the minimize and maximize buttons
+	local titleLabel = Instance.new("TextLabel", background)
+	titleLabel.Name = ""
+	titleLabel.Size = UDim2.new(1, 0, 0, 20)
+	titleLabel.Position = UDim2.new(0, 8, 0, 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Font = THEME.Font_SemiBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextColor3 = THEME.Text_Color
+	titleLabel.TextSize = 14
+	titleLabel.ZIndex = 2
+	titleLabel.Text = title
+
+	local dragHandle = Instance.new("TextButton", background)
+	dragHandle.Name = ""
+	dragHandle.Size = UDim2.new(1, 0, 0, 20)
+	dragHandle.BackgroundTransparency = 1
+	dragHandle.Text = ""
+
+	-- Buttons
+	local closeButton = Instance.new("ImageButton", background)
+	closeButton.Name = ""
+	closeButton.Image = "rbxassetid://4389749368"
+	closeButton.Size = UDim2.new(0, 12, 0, 12)
+	closeButton.BackgroundTransparency = 1
+	closeButton.AutoButtonColor = false
+	closeButton.Position = UDim2.new(1, -18, 0, 4)
+	closeButton.ZIndex = 2
+
+	local miniButton = Instance.new("ImageButton", background)
+	miniButton.Name = ""
+	miniButton.Image = "rbxassetid://4530358017"
+	miniButton.Size = UDim2.new(0, 12, 0, 12)
+	miniButton.BackgroundTransparency = 1
+	miniButton.AutoButtonColor = false
+	miniButton.Position = UDim2.new(1, -37, 0, 4)
+	miniButton.ZIndex = 2
+
+	-- Functionality
+	local active = true
+	local minimised = false
+
+	-- Close window event
+	local c1 = closeButton.MouseButton1Click:Connect(function()
+		active = false
+	end)
+
+	-- Minimize
+	local c2 = miniButton.MouseButton1Click:Connect(function()
+		minimised = not minimised
+
+		if minimised then
+			local textWidth = game:GetService("TextService"):GetTextSize(title, 14, THEME.Font_SemiBold, Vector2.new(math.huge, math.huge)).X
+			background.Size = UDim2.new(0, textWidth + 60, 0, 20)
+
+			handleBackground.Visible = false
+			background.ImageColor3 = THEME.Window_Handle_Color
+
+			for _, v in pairs(background:GetChildren()) do
+				if v:IsA("ScrollingFrame") then
+					v.Visible = false
+				end
+			end
+		else
+			background.Size = UDim2.new(0, size[1], 0, size[2])
+
+			handleBackground.Visible = true
+			background.ImageColor3 = THEME.Window_Background_Color
+
+			for _, v in pairs(background:GetChildren()) do
+				if v:IsA("ScrollingFrame") then
+					v.Visible = true
+				end
+			end
+		end
+	end)
+
+	-- Dragging
+	local startDragPos = Vector2.new(0, 0)
+	local dragging = false
+
+	local c3 = dragHandle.MouseButton1Down:Connect(function()
+		startDragPos = Vector2.new(MOUSE.X, MOUSE.Y)
+		dragging = true
+
+		local dragStartOffset = Vector2.new(MOUSE.X, MOUSE.Y) - dragHandle.AbsolutePosition
+
+		repeat
+			background.Position = UDim2.new(0, MOUSE.X - dragStartOffset.X, 0, MOUSE.Y - dragStartOffset.Y)
+
+			RUN_SERVICE.RenderStepped:Wait()
+		until dragging == false
+	end)
+
+	local c4 = dragHandle.MouseButton1Up:Connect(function()
+		dragging = false
+	end)
+
+	local c5 = MOUSE.Button1Up:Connect(function()
+		dragging = false
+	end)
+
+	table.insert(ALL_CONNECTIONS, c1)
+	table.insert(ALL_CONNECTIONS, c2)
+	table.insert(ALL_CONNECTIONS, c3)
+	table.insert(ALL_CONNECTIONS, c4)
+	table.insert(ALL_CONNECTIONS, c5)
+
+	-- Window class
+	local class = {}
+
+	-- Methods
+	function class.IsActive()
+		return active
+	end
+
+	function class.GetBackground()
+		return background
+	end
+
+	return class
+end
+
+local function CreateFolder(scrollingFrame, folderName, elementPadding)
+	if folderName     == nil then folderName     = "Folder" end
+	if elementPadding == nil then elementPadding = 0        end
+
+	local frame = Instance.new("Frame", scrollingFrame)
+	frame.Name = ""
+	frame.BackgroundTransparency = 1
+	frame.Size = UDim2.new(1, 0, 0, THEME.Folder_Handle_Height)
+
+	local container = Instance.new("Frame", frame)
+	container.Name = ""
+	container.BackgroundTransparency = 1
+	container.Size = UDim2.new(1, 0, 0, 0)
+	container.Position = UDim2.new(0, 0, 0, THEME.Folder_Handle_Height)
+
+	local titleLabel = Instance.new("TextLabel", frame)
+	titleLabel.Name = ""
+	titleLabel.Size = UDim2.new(1, -THEME.Folder_Title_Left_Padding, 0, THEME.Folder_Handle_Height)
+	titleLabel.Position = UDim2.new(1, 0, 0, 0)
+	titleLabel.AnchorPoint = Vector2.new(1, 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Font = THEME.Font_Bold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+	titleLabel.TextColor3 = THEME.Folder_Title_Color
+	titleLabel.TextSize = 12
+	titleLabel.Text = folderName
+
+	local collapse = Instance.new("ImageButton", frame)
+	collapse.Name = ""
+	collapse.Image = "http://www.roblox.com/asset/?id=54479709"
+	collapse.BackgroundTransparency = 1
+	collapse.AnchorPoint = Vector2.new(0.5, 0.5)
+	collapse.Size = UDim2.new(0, THEME.Folder_Collapse_Button_Dimensions.X, 0, THEME.Folder_Collapse_Button_Dimensions.Y)
+	collapse.Position = UDim2.new(0, THEME.Folder_Collapse_Left_Padding, 0, THEME.Folder_Handle_Height / 2 + 3)
+
+	local list = Instance.new("UIListLayout", container)
+	list.Name = ""
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, elementPadding)
+
+	-- Functionality
+	local childrenHeight = 0
+	local isCollapsed = false
+
+	local function CalculateNewHeight()
+		RUN_SERVICE.RenderStepped:Wait()
+		childrenHeight = list.AbsoluteContentSize.Y
+
+		frame.Size = UDim2.new(1, 0, 0, childrenHeight + THEME.Folder_Handle_Height)
+		container.Size = UDim2.new(1, 0, 0, childrenHeight)
+	end
+
+	local c1 = container.ChildAdded:Connect(function(c)
+		if isCollapsed == false then
+			CalculateNewHeight()
+		end
+	end)
+
+	local c2 = container.ChildRemoved:Connect(function(c)
+		if isCollapsed == false then
+			CalculateNewHeight()
+		end
+	end)
+
+	-- Collapse
+	local function Update()
+		collapse.Rotation = isCollapsed and -180 or -90
+
+		if isCollapsed then
+			frame.Size = UDim2.new(1, 0, 0, THEME.Folder_Handle_Height)
+		else
+			frame.Size = UDim2.new(1, 0, 0, container.Size.Y.Offset + THEME.Folder_Handle_Height)
+		end
+
+		for _, v in pairs(container:GetDescendants()) do
+			pcall(function()
+				v.Visible = not isCollapsed
+			end)
+		end
+	end
+
+	local c3 = collapse.MouseButton1Click:Connect(function()
+		isCollapsed = not isCollapsed
+
+		Update()
+	end)
+
+	local c4 = container.DescendantAdded:Connect(function(c)
+		if isCollapsed then
+			pcall(function()
+				c.Visible = not isCollapsed
+			end)
+		end
+	end)
+
+	table.insert(ALL_CONNECTIONS, c1)
+	table.insert(ALL_CONNECTIONS, c2)
+	table.insert(ALL_CONNECTIONS, c3)
+	table.insert(ALL_CONNECTIONS, c4)
+
+	Update()
+
+
+	return container
+end
+
+
+
+
+-- Application Creation
+local applicationGui = CreateGui()
+
+local window = CreateWindow(applicationGui, "Essentials", { 380, 290 })
+local elementsContainer = CreateScrollingFrame(window.GetBackground(), UDim2.new(1, 0, 1, -20), UDim2.new(0, 0, 0, 20), nil, 0, 6)
+
+-- ESP
+local folder_ESP = CreateFolder(elementsContainer, "ESP")
+local switch_ESP_Enabled = CreateSwitch(folder_ESP, "ESP Enabled", false)
+local switch_Freecam_Enabled = CreateSwitch(folder_ESP, "Freecam Enabled", false)
+
+-- Teleport
+local folder_Teleport = CreateFolder(elementsContainer, "Teleport")
+local button_Teleport_To_Camera = CreateButton(folder_Teleport, "Teleport To Camera", "Teleport")
+CreatePadding(folder_Teleport, 4)
+local button_Teleport_To_Player = CreateButton(folder_Teleport, "Teleport To Player", "Teleport")
+local input_Teleport_To_Player_Target = CreateInput(folder_Teleport, "Player Name", "")
+CreatePadding(folder_Teleport, 4)
+local button_Teleport_Forward = CreateButton(folder_Teleport, "Teleport Forward", "Teleport")
+local input_Teleport_Forward_Studs = CreateInput(folder_Teleport, "Teleport Forward Studs", 5)
+
+-- ESP Settings
+local folder_ESP_Settings = CreateFolder(elementsContainer, "ESP Settings")
+local switch_Show_Tags = CreateSwitch(folder_ESP_Settings, "Show Tags", true)
+local switch_Bold_Tags = CreateSwitch(folder_ESP_Settings, "Bold Tags", false)
+local switch_Use_Display_Name = CreateSwitch(folder_ESP_Settings, "Use Display Name", false)
+local switch_Label_Item_In_Hand = CreateSwitch(folder_ESP_Settings, "Label Item In Hand", false)
+local switch_Show_Distance = CreateSwitch(folder_ESP_Settings, "Show Distance", false)
+local input_ESP_Transparency = CreateInput(folder_ESP_Settings, "ESP Transparency", 0.9)
+local input_Isolate_Player = CreateInput(folder_ESP_Settings, "Isolate Player", "")
+
+-- Freecam Settings
+local folder_Freecam_Settings = CreateFolder(elementsContainer, "Freecam Settings")
+local input_Freecam_Velocity = CreateInput(folder_Freecam_Settings, "Freecam Velocity", 100)
+local input_Freecam_Sensitivity = CreateInput(folder_Freecam_Settings, "Freecam Sensitivity", 0.5)
+local keybind_Freecam_Up = CreateKeybind(folder_Freecam_Settings, "Freecam Up", Enum.KeyCode.E)
+local keybind_Freecam_Down = CreateKeybind(folder_Freecam_Settings, "Freecam Down", Enum.KeyCode.Q)
+
+-- Aimbot
+local folder_Aimbot = CreateFolder(elementsContainer, "Aimbot")
+local switch_Aimbot_Enabled = CreateSwitch(folder_Aimbot, "Aimbot Enabled", false)
+local switch_Aimbot_Team_Check = CreateSwitch(folder_Aimbot, "Team Check", false)
+local switch_Aimbot_Wall_Check = CreateSwitch(folder_Aimbot, "Wall Check", false)
+local keybind_Aimbot_Engage = CreateKeybind(folder_Aimbot, "Engage Aimbot", Enum.KeyCode.V)
+
+-- Misc
+local folder_Misc = CreateFolder(elementsContainer, "Misc")
+local switch_Noclip_Enabled = CreateSwitch(folder_Misc, "Noclip Enabled", false)
+local button_Sit = CreateButton(folder_Misc, "Sit", "Sit")
+local button_Fix_Camera = CreateButton(folder_Misc, "Fix Camera", "Fix")
+local button_Load_World_At_Camera = CreateButton(folder_Misc, "Load World At Camera", "Load")
+
+-- Information
+local folder_Information = CreateFolder(elementsContainer, "Information")
+local output_ESP = CreateOutput(folder_Information, 1)
+local output_Camera = CreateOutput(folder_Information, 1)
+local output_Character = CreateOutput(folder_Information, 6)
+local output_Server = CreateOutput(folder_Information, 2)
+
+
+local espBoxFolder = Instance.new("Folder", applicationGui)
+espBoxFolder.Name = ""
+
+local espTagFolder = Instance.new("Folder", applicationGui)
+espTagFolder.Name = ""
+
+
+-- Cursor (used to show where the mouse incase the mouse icon is invisible)
+local cursor = Instance.new("Frame", applicationGui)
+cursor.Name = ""
+cursor.BorderSizePixel = 0
+cursor.Size = UDim2.new(0, 2, 0, 2)
+cursor.AnchorPoint = Vector2.new(0.5, 0.5)
+cursor.BackgroundColor3 = Color3.new(1, 1, 1)
+
+-- Functions
 local function MatchPlayerWithString(str)
 	for _, v in pairs(game.Players:GetPlayers()) do
 		if string.find(string.lower(v.Name), string.lower(str)) then
@@ -809,696 +907,631 @@ local function MatchPlayerWithString(str)
 	end
 end
 
-local function StringToNumber(str, returnValueIfNotValid)
-	local ret = returnValueIfNotValid ~= nil and returnValueIfNotValid or 0
-	return typeof(tonumber(str)) == "number" and tonumber(str) or ret
-end
-
--- Math Functions
-local function RoundNumber(number, decimals)
-	local multiplier = 10 ^ decimals
-
-	return math.floor(number * multiplier + 0.5) / multiplier
-end
-
-
-
-
-
-local DEFAULT_AIMBOT_KEY = Enum.KeyCode.LeftControl
-
--- Application Gui
-local APP_GUI = CreateGui(APPLICATION_GUI_PARENT, "APPLICATION", false, false)
-
-local mainFrame = CreateFrame(APP_GUI, "MainFrame", 3, APPLICATION_SIZE, UDim2.new(0, 0, 0, 0))
-mainFrame.ClipsDescendants = true
-
-local dragHandle = CreateDragHandle(mainFrame, APP_GUI, "DragHandle", UDim2.new(1, 0, 0, 20), nil, nil, "Essentials")
-
-local elements_Container = CreateScrollingFrame(mainFrame, "ElementsContainer", UDim2.new(1, 0, 1, -22), UDim2.new(0, 0, 0, 22), nil, 0)
-
-local cursor = Instance.new("Frame", APP_GUI)
-cursor.BorderSizePixel = 0
-cursor.Size = UDim2.new(0, 2, 0, 2)
-cursor.AnchorPoint = Vector2.new(0.5, 0.5)
-cursor.BackgroundColor3 = Color3.new(1, 1, 1)
-
-
--- ESP
-AddPadding(elements_Container, 17, "ESP")
-local switch_ESP_Enabled = CreateSwitch(elements_Container, "Switch_ESP_Enabled", "ESP Enabled", false)
-local switch_Freecam_Enabled = CreateSwitch(elements_Container, "Switch_Freecam_Enabled", "Freecam Enabled", false)
-
-AddPadding(elements_Container, 4)
-local switch_UseDisplayName = CreateSwitch(elements_Container, "Switch_UseDisplayName", "Use Display Name", false)
-local switch_LabelItemInHand = CreateSwitch(elements_Container, "Switch_LabelItemInHand", "Label Item In Hand", false)
-local switch_ShowDistance = CreateSwitch(elements_Container, "Switch_ShowDistance_Enabled", "Show Distance", false)
-local switch_BoldTags = CreateSwitch(elements_Container, "Switch_BoldTags", "Bold Tags", false)
-local switch_ShowTags = CreateSwitch(elements_Container, "Switch_ShowTags", "Show Tags", true)
-local input_IsolatePlayer = CreateInput(elements_Container, "Input_IsolatePlayer", "Isolate Player", "")
-
--- Teleport
-AddPadding(elements_Container, 17, "Teleport")
-local button_TeleportToCamera = CreateButton(elements_Container, "Button_TeleportToCamera", "Teleport To Camera", "Teleport")
-local button_TeleportThrough = CreateButton(elements_Container, "Button_TeleportThrough", "Teleport Through", "Teleport")
-
-AddPadding(elements_Container, 4)
-local button_TeleportToPlayer = CreateButton(elements_Container, "Button_TeleportToPlayer", "Teleport To", "Teleport")
-local input_TeleportToPlayer = CreateInput(elements_Container, "Input_TeleportToPlayer", "Player Name")
-
--- Aimbot
-AddPadding(elements_Container, 17, "Aimbot")
-local switch_Aimbot_Enabled = CreateSwitch(elements_Container, "Switch_Aimbot_Enabled", "Aimbot Enabled", false)
-local switch_Aimbot_TeamCheck_Enabled = CreateSwitch(elements_Container, "Switch_AimbotTeamCheck_Enabled", "Team Check Enabled", false)
-
--- Misc
-AddPadding(elements_Container, 17, "Misc")
-
-local switch_Noclip = CreateSwitch(elements_Container, "Switch_Noclip", "Noclip Enabled", false)
-local button_FixCamera = CreateButton(elements_Container, "Button_FixCamera", "Fix Camera", "Fix")
-local button_LoadWorldAtCamera = CreateButton(elements_Container, "Button_LoadWorldAtCamera", "Load World At Camera", "Load")
-local button_Sit = CreateButton(elements_Container, "Button_Sit", "Sit", "Sit")
-
--- Keybinds
-AddPadding(elements_Container, 17, "Keybinds")
-local keybind_Aimbot = CreateKeybind(elements_Container, "Keybind_Aimbot", "Engage Aimbot", DEFAULT_AIMBOT_KEY)
-local keybind_FreecamUp = CreateKeybind(elements_Container, "Keybind_FreecamUp", "Freecam Up", Enum.KeyCode.E)
-local keybind_FreecamDown = CreateKeybind(elements_Container, "Keybind_FreecamDown", "Freecam Down", Enum.KeyCode.Q)
-
--- Settings
-AddPadding(elements_Container, 17, "Settings")
-local input_FreecamSpeed = CreateInput(elements_Container, "Input_FreecamSpeed", "Freecam Speed", 100)
-local input_FreecamSensitivity = CreateInput(elements_Container, "Input_FreecamSensitivity", "Freecam Sensitivity", 0.5)
-local input_TeleportThroughLength = CreateInput(elements_Container, "Input_TeleportThroughLength", "Teleport Through Length", 5)
-local input_ESP_Transparency = CreateInput(elements_Container, "Input_ESP_Transparency", "ESP Transparency", 0.8)
-
--- Information
-AddPadding(elements_Container, 17, "Information")
-local output_Freecam = CreateOutput(elements_Container, "Output", 1)
-local output_Camera = CreateOutput(elements_Container, "Output", 1)
-local output_Character = CreateOutput(elements_Container, "Output", 6)
-local output_Misc = CreateOutput(elements_Container, "Output", 2)
-
-local uniqueId = tostring(game:GetService("HttpService"):GenerateGUID(false))
-
-local function AddESPToPlayer(plr)
-	local function AddBox(c)
-		local box = Instance.new("BoxHandleAdornment", APP_GUI)
-		box.Name = "Box"
-		box.Adornee = c
-		box.Size = c.Size
-		box.Color = BrickColor.new(1, 1, 1)
-		box.Transparency = input_ESP_Transparency.GetNumber()
-		box.ZIndex = 10
-		box.AlwaysOnTop = true
-		
-		c.AncestryChanged:Connect(function()
-			if not box:IsAncestorOf(workspace) then
-				box:Destroy()
-			end
-		end)
-	end
-
-	local stop = false
-	
-	if switch_ESP_Enabled.GetValue() == true then
-		local thread = coroutine.create(function()
-			if plr.Character and plr ~= LOCAL_PLAYER then -- Ensure the player's character exists and that this player is not us
-				-- Wait until humanoid exists, otherwise just stop the loop after too many checks
-				local step = 0
-				local maxChecks = 500
-				repeat step = step + 1 wait() until plr.Character:FindFirstChild("Humanoid") or step > maxChecks or not SCRIPT_ENABLED
-
-				if step <= maxChecks then
-					-- Remove duplicate tags
-					for _, v in pairs(APP_GUI:GetChildren()) do
-						if v.Name == "Tag_" .. plr.Name then
-							v:Destroy()
-						end
-					end
-					
-					local tag = Instance.new("TextLabel", APP_GUI)
-					tag.Name = "Tag_" .. plr.Name
-					tag.TextSize = 11
-					tag.TextColor3 = Color3.new(1, 1, 1)
-					tag.Font = Enum.Font.GothamSemibold
-					tag.AnchorPoint = Vector2.new(0.5, 1)
-					tag.TextStrokeTransparency = 0.9
-					tag.BackgroundTransparency = 1
-
-					local item = Instance.new("TextLabel", tag)
-					item.Name = "Item"
-					item.Text = ""
-					item.TextSize = 10
-					item.TextColor3 = Color3.new(0.4, 1, 0.4)
-					item.Position = UDim2.new(0.5, 0, 0, -11)
-					item.Font = Enum.Font.GothamSemibold
-					item.AnchorPoint = Vector2.new(0.5, 0)
-					item.TextStrokeTransparency = 0.9
-					item.BackgroundTransparency = 1
-
-					if LOCAL_PLAYER:IsFriendsWith(plr.UserId) then -- Label as friend
-						local friend = Instance.new("TextLabel", tag)
-						friend.Name = "Friend"
-						friend.Text = "FRIEND"
-						friend.TextSize = 8
-						friend.TextColor3 = Color3.new(0.4, 1, 0.4)
-						friend.Position = UDim2.new(0.5, 0, 0, -10)
-						friend.Font = Enum.Font.GothamSemibold
-						friend.AnchorPoint = Vector2.new(0.5, 0)
-						friend.TextStrokeTransparency = 0.9
-						friend.BackgroundTransparency = 1
-
-						item.Position = UDim2.new(0.5, 0, 0, -18)
-					end
-					
-					local childAddedConnection = plr.Character.ChildAdded:Connect(function(c)
-						if SCRIPT_ENABLED then
-							if c:IsA("Tool") then -- If player equips tool, then display that
-								item.Text = "Holding: " .. c.Name
-							end
-							
-							if c:IsA("BasePart") and c.Name ~= "HumanoidRootPart" then
-								AddBox(c)
-							end
-						end
-					end)
-
-					local childRemovedConnection = plr.Character.ChildRemoved:Connect(function(c) -- If player unequips tool, then change that
-						if SCRIPT_ENABLED then
-							if c:IsA("Tool") then
-								item.Text = "" -- Assume no tools are being held
-								
-								for _, v in pairs(plr.Character:GetChildren()) do -- Check if a tool is held then change it
-									if v:IsA("Tool") then
-										item.Text = "Holding: " .. v.Name
-									end
-								end
-							end
-						end
-					end)
-					
-					-- Add a box for every part, excluding the HumanoidRootPart
-					for _, c in pairs(plr.Character:GetChildren()) do
-						if c:IsA("BasePart") and c.Name ~= "HumanoidRootPart" then
-							AddBox(c)
-						end
-
-						if c:IsA("Tool") then -- Check if a tool is held
-							item.Text = "Holding: " .. c.Name
-						end
-					end
-					
-					local currentCharacter = plr.Character
-					local renderSteppedConnection = nil
-					
-					local function Disconnect()
-						pcall(function() childAddedConnection:Disconnect() end)
-						pcall(function() childRemovedConnection:Disconnect() end)
-						pcall(function() renderSteppedConnection:Disconnect() end)
-						
-						pcall(function() tag:Destroy() end)
-					end
-					
-					renderSteppedConnection = game:GetService("RunService").RenderStepped:Connect(function()
-						if SCRIPT_ENABLED then
-							if plr == nil or currentCharacter ~= plr.Character or tag.Parent ~= APP_GUI then
-								Disconnect()
-							end
-							
-							local head = plr.Character:FindFirstChild("Head")
-							
-							-- Isolate players
-							if switch_ShowTags.GetValue() == true then
-								local shouldHide = false
-								
-								do
-									local keyword = input_IsolatePlayer.GetText()
-									
-									if keyword ~= "" then
-										if switch_UseDisplayName.GetValue() == true then
-											if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
-												shouldHide = true
-											end
-										else
-											if not string.find(string.lower(plr.Name), string.lower(keyword)) then
-												shouldHide = true
-											end
-										end
-									end
-								end
-								
-								if shouldHide == false then
-									-- Tag
-									local tagText = ""
-									
-									if switch_UseDisplayName.GetValue() == true then
-										tagText = "[" .. plr.DisplayName .. "]"
-									else
-										tagText = "[" .. plr.Name .. "]"
-									end
-									
-									tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
-									
-									if switch_BoldTags.GetValue() == true then
-										tag.TextStrokeTransparency = 0
-
-										local color = tag.TextColor3
-										local v = (color.R + color.G + color.B) / 3
-
-										if v > 0.5 then
-											tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
-										else
-											tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
-										end
-									else
-										tag.TextStrokeTransparency = 0.9
-										tag.TextStrokeColor3 = Color3.new(0, 0, 0)
-									end
-
-									item.Visible = switch_LabelItemInHand.GetValue()
-
-									if plr.Character:FindFirstChild("Humanoid") then
-										tagText = tagText .. "[" .. math.floor(plr.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(plr.Character.Humanoid.MaxHealth + 0.5) .. "]"
-
-										if switch_ShowDistance.GetValue() == true then
-											tagText = tagText .. "[" .. math.floor((workspace.CurrentCamera.CFrame.Position - plr.Character.HumanoidRootPart.Position).Magnitude + 0.5) .. " studs]"
-										end
-									end
-									
-									tag.Text = tagText
-									
-									-- Position
-									if head ~= nil then
-										local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
-										local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
-
-										if onScreen then
-											tag.Visible = true
-											tag.Position = UDim2.new(0, pos.X, 0, pos.Y - offset)
-										else
-											tag.Visible = false
-										end
-									else
-										tag.Visible = false
-									end
-								else
-									tag.Visible = false
-								end
-							else
-								tag.Visible = false
-							end
-						else
-							Disconnect()
-						end
-					end)
-				end
-			end
-		end)
-		
-		coroutine.resume(thread)
-	end
-end
-
--- ESP when player is given new character
-for _, plr in pairs(game.Players:GetPlayers()) do
-	plr.CharacterAdded:Connect(function(char)
-		AddESPToPlayer(plr)
-	end)
-end
-
-game.Players.PlayerAdded:Connect(function(plr)
-	plr.CharacterAdded:Connect(function(char)
-		AddESPToPlayer(plr)
-	end)
-end)
-
-local function RemoveESPs()
-	for _, plr in pairs(game.Players:GetPlayers()) do
-		if plr.Character then
-			for _, c in pairs(plr.Character:GetDescendants()) do
-				if c.Name == uniqueId then
-					c:Destroy()
-				end
-			end
-
-			for _, c in pairs(APP_GUI:GetChildren()) do
-				if c:IsA("BoxHandleAdornment") or string.find(c.Name, "Tag") then
-					c:Destroy()
-				end
-			end
-		end
-	end
-end
-
-
-local freecamVelocity = Vector3.new(0, 0, 0)
-local freecamRotation = Vector2.new(0, 0)
-local freecamPosition = Vector3.new(0, 0, 0)
-
-local previousCamType = workspace.CurrentCamera.CameraType
-local lastTick = tick()
+-- Some variables
+local prevCameraType = workspace.CurrentCamera.CameraType -- The camera type before freecam is enabled
+local aimbotTarget = nil
 local lastTickCheckLoadedPlayers = tick()
 
-local aimbotTarget = nil
+local freecamPosition = Vector3.new(0, 0, 0)
+local freecamRotation = Vector2.new(0, 0)
 
-
-local function InputChanged(input, gameProcessed)
+-- Freecam scroll
+local inputChangedConnection = game:GetService("UserInputService").InputChanged:Connect(function(input, gameProcessed)
 	if SCRIPT_ENABLED then
 		if input.UserInputType == Enum.UserInputType.MouseWheel and not gameProcessed then
-			if switch_Freecam_Enabled.GetValue() == true then
+			if switch_Freecam_Enabled.On() then
 				local ray = workspace.CurrentCamera:ScreenPointToRay(MOUSE.X, MOUSE.Y)
 				local direction = ray.Direction
-				
+
 				freecamPosition = freecamPosition + (direction * input.Position.Z * 20)
 			end
 		end
 	end
+end)
+
+table.insert(ALL_CONNECTIONS, inputChangedConnection)
+
+-- ESP
+local function CreateESPForPlayer(plr)
+	if switch_ESP_Enabled.On() == false then return end
+	
+	local thread = coroutine.create(function()
+		do
+			local steps = 0
+			
+			repeat
+				steps = steps + 1
+				wait()
+			until plr.Character or steps > 200
+			
+			if plr.Character == nil then
+				return
+			end
+		end
+		
+		local character = plr.Character
+		
+		-- Keep track of connections
+		local eventConnections = {}
+
+		-- Tag
+		local head = character:FindFirstChild("Head")
+
+		if head == nil then
+			head = character:GetPrimaryPart()
+		end
+
+		local tag = Instance.new("TextLabel", espTagFolder)
+		tag.Name = ""
+		tag.Font = Enum.Font.GothamSemibold
+		tag.BackgroundTransparency = 1
+		tag.AnchorPoint = Vector2.new(0.5, 1)
+		tag.TextSize = 11
+
+		local item = Instance.new("TextLabel", tag)
+		item.Name = ""
+		item.Text = ""
+		item.TextSize = 10
+		item.TextColor3 = Color3.new(0.4, 1, 0.4)
+		item.Position = UDim2.new(0.5, 0, 0, -11)
+		item.Font = Enum.Font.GothamSemibold
+		item.AnchorPoint = Vector2.new(0.5, 0)
+		item.TextStrokeTransparency = 0.9
+		item.BackgroundTransparency = 1
+
+		if LOCAL_PLAYER:IsFriendsWith(plr.UserId) then -- Label as friend
+			local friend = Instance.new("TextLabel", tag)
+			friend.Name = ""
+			friend.Text = "FRIEND"
+			friend.TextSize = 8
+			friend.TextColor3 = Color3.new(0.4, 1, 0.4)
+			friend.Position = UDim2.new(0.5, 0, 0, -10)
+			friend.Font = Enum.Font.GothamSemibold
+			friend.AnchorPoint = Vector2.new(0.5, 0)
+			friend.TextStrokeTransparency = 0.9
+			friend.BackgroundTransparency = 1
+
+			item.Position = UDim2.new(0.5, 0, 0, -18)
+		end
+
+		-- Boxes
+		local boxes = {}
+
+		local function AddBox(part)
+			local box = Instance.new("BoxHandleAdornment", espBoxFolder)
+			box.Name = ""
+			box.Adornee = part
+			box.Size = part.Size
+			box.Color = BrickColor.new(1, 1, 1)
+			box.Transparency = input_ESP_Transparency.GetInputTextAsNumber()
+			box.ZIndex = 10
+			box.AlwaysOnTop = true
+
+			local connection = part.AncestryChanged:Connect(function()
+				if not box:IsAncestorOf(workspace) then
+					box:Destroy()
+				end
+			end)
+
+			table.insert(boxes, box)
+			table.insert(eventConnections, connection)
+			table.insert(ALL_CONNECTIONS, connection)
+		end
+
+		for _, v in pairs(character:GetChildren()) do
+			if v:IsA("BasePart") then
+				AddBox(v)
+			elseif v:IsA("Tool") then
+				item.Text = "Holding: " .. v.Name
+				
+				for _, c in pairs(v:GetChildren()) do
+					if v:IsA("BasePart") then
+						AddBox(c)
+					end
+				end
+			end
+		end
+
+		local addedConnection = character.ChildAdded:Connect(function(c)
+			if c:IsA("BasePart") and c.Name ~= "HumanoidRootPart" then
+				AddBox(c)
+			elseif c:IsA("Tool") then -- If player equips tool, then display that
+				item.Text = "Holding: " .. c.Name
+			end
+		end)
+
+		local removedConnection = character.ChildRemoved:Connect(function(c)
+			if c:IsA("Tool") then
+				item.Text = "" -- Assume no tools are being held
+
+				for _, v in pairs(character:GetChildren()) do -- Check if a tool is held then change it
+					if v:IsA("Tool") then
+						item.Text = "Holding: " .. v.Name
+					end
+				end
+			end
+		end)
+
+		table.insert(eventConnections, addedConnection)
+		table.insert(eventConnections, removedConnection)
+		table.insert(ALL_CONNECTIONS, addedConnection)
+		table.insert(ALL_CONNECTIONS, removedConnection)
+		
+		-- Loop
+		local stopLoop = false
+		local currentCharacter = character
+
+		local function Process()
+			if SCRIPT_ENABLED == false then
+				stopLoop = true
+			else
+				local shouldHide = false
+
+				do
+					local keyword = input_Isolate_Player.GetInputText()
+
+					if keyword ~= "" then
+						if switch_Use_Display_Name.On() then
+							if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
+								shouldHide = true
+							end
+						else
+							if not string.find(string.lower(plr.Name), string.lower(keyword)) then
+								shouldHide = true
+							end
+						end
+					end
+				end
+
+				if shouldHide then
+					tag.Visible = false
+					return
+				end
+
+				if tag.Parent ~= espTagFolder then
+					stopLoop = true
+				end
+
+				if plr.Character ~= currentCharacter then
+					stopLoop = true
+				end
+
+				-- Tag
+				local tagText = ""
+
+				if switch_Use_Display_Name.On() then
+					tagText = "[" .. plr.DisplayName .. "]"
+				else
+					tagText = "[" .. plr.Name .. "]"
+				end
+
+				tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+
+				if switch_Bold_Tags.On() then
+					tag.TextStrokeTransparency = 0
+
+					local color = tag.TextColor3
+					local v = (color.R + color.G + color.B) / 3
+
+					if v > 0.5 then
+						tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
+					else
+						tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
+					end
+				else
+					tag.TextStrokeTransparency = 0.9
+					tag.TextStrokeColor3 = Color3.new(0, 0, 0)
+				end
+
+				item.Visible = switch_Label_Item_In_Hand.On()
+
+				if plr.Character:FindFirstChild("Humanoid") then
+					tagText = tagText .. "[" .. math.floor(plr.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(plr.Character.Humanoid.MaxHealth + 0.5) .. "]"
+
+					if switch_Show_Distance.On() then
+						tagText = tagText .. "[" .. math.floor((workspace.CurrentCamera.CFrame.Position - plr.Character.HumanoidRootPart.Position).Magnitude + 0.5) .. " studs]"
+					end
+				end
+
+				tag.Text = tagText
+
+
+				local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
+				local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
+
+				if onScreen then
+					tag.Visible = true
+					tag.Position = UDim2.new(0, pos.X, 0, pos.Y - offset)
+				else
+					tag.Visible = false
+				end
+			end
+		end
+
+		local uniqueId = game:GetService("HttpService"):GenerateGUID(false)
+		RUN_SERVICE:BindToRenderStep(uniqueId, Enum.RenderPriority.Last.Value, Process)
+		repeat RUN_SERVICE.RenderStepped:Wait() until stopLoop
+		RUN_SERVICE:UnbindFromRenderStep(uniqueId)
+
+		tag:Destroy()
+
+		for _, connection in pairs(eventConnections) do
+			connection:Disconnect()
+		end
+
+		for _, v in pairs(boxes) do
+			if v ~= nil then
+				v:Destroy()
+			end
+		end
+	end)
+
+	coroutine.resume(thread)
 end
 
-local inputChangedConnection = game:GetService("UserInputService").InputChanged:Connect(InputChanged)
+-- Add ESP
+for _, v in pairs(game.Players:GetPlayers()) do
+	if v ~= LOCAL_PLAYER then
+		CreateESPForPlayer(v)
 
-while SCRIPT_ENABLED do
-	local dt = tick() - lastTick
-	local cam = workspace.CurrentCamera
-	
+		local c = v.CharacterAdded:Connect(function()
+			CreateESPForPlayer(v)
+		end)
+
+		table.insert(ALL_CONNECTIONS, c)
+	end
+end
+
+game.Players.PlayerAdded:Connect(function(plr)
+	local c = plr.CharacterAdded:Connect(function()
+		CreateESPForPlayer(plr)
+	end)
+
+	table.insert(ALL_CONNECTIONS, c)
+end)
+
+-- Process is called every frame
+local function Process(deltaTime)
+	local camera = workspace.CurrentCamera
+
+	-- Find character and humanoid
+	local character = LOCAL_PLAYER.Character
 	local humanoid = nil
-	
-	if LOCAL_PLAYER.Character then
-		if LOCAL_PLAYER.Character:FindFirstChild("Humanoid") then
-			humanoid = LOCAL_PLAYER.Character.Humanoid
-		end
+
+	if character then
+		humanoid = character:FindFirstChild("Humanoid")
 	end
 
-	--mainFrame.BackgroundTransparency = input_GuiTransparency.GetNumber()
+	-- Cursor handling
+	local winPos = window.GetBackground().AbsolutePosition
+	local winSize = window.GetBackground().AbsoluteSize
 
 	cursor.Position = UDim2.new(0, MOUSE.X, 0, MOUSE.Y)
-	if MOUSE.X > mainFrame.AbsolutePosition.X and MOUSE.X < mainFrame.AbsolutePosition.X + mainFrame.AbsoluteSize.X and MOUSE.Y > mainFrame.AbsolutePosition.Y and MOUSE.Y < mainFrame.AbsolutePosition.Y + mainFrame.AbsoluteSize.Y then
+
+	if MOUSE.X > winPos.X and MOUSE.X < winPos.X + winSize.X and MOUSE.Y > winPos.Y and MOUSE.Y < winPos.Y + winSize.Y then
 		cursor.Visible = true
 	else
 		cursor.Visible = false
 	end
-	
-	-- Sit
-	if button_Sit.ButtonPressed() then
-		if humanoid then
-			humanoid.Sit = true
-		end
-	end
-	
-	-- Load world
-	if button_LoadWorldAtCamera.ButtonPressed() then
-		local thread = coroutine.create(function()
-			LOCAL_PLAYER:RequestStreamAroundAsync(cam.CFrame.Position)
-		end)
-		
-		coroutine.resume(thread)
-	end
 
-	-- Noclip
-	if switch_Noclip.GetValue() == true then
-		humanoid:ChangeState(11)
-	end
 
+
+	-- ESP
 	if switch_ESP_Enabled.ValueChanged() then
-		if switch_ESP_Enabled.GetValue() == true then
-			for _, plr in pairs(game.Players:GetPlayers()) do
-				AddESPToPlayer(plr)
+		if switch_ESP_Enabled.On() then
+			for _, v in pairs(game.Players:GetPlayers()) do
+				if v ~= LOCAL_PLAYER then
+					CreateESPForPlayer(v)
+				end
 			end
 		else
-			RemoveESPs()
+			for _, v in pairs(espBoxFolder:GetChildren()) do
+				v:Destroy()
+			end
+
+			for _, v in pairs(espTagFolder:GetChildren()) do
+				v:Destroy()
+			end
 		end
 	end
 
+	if input_ESP_Transparency.InputChanged() then
+		for _, v in pairs(espBoxFolder:GetChildren()) do
+			if v:IsA("BoxHandleAdornment") then
+				v.Transparency = input_ESP_Transparency.GetInputTextAsNumber()
+			end
+		end
+	end
+
+	-- Freecam
 	if switch_Freecam_Enabled.ValueChanged() then
-		if switch_Freecam_Enabled.GetValue() == true then
-			game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Sink end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_FreecamDown.GetKeyCode(), keybind_FreecamUp.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
-			previousCamType = cam.CameraType
+		if switch_Freecam_Enabled.On() then
+			-- Disable movement of character while in freecam
+			prevCameraType = camera.CameraType
+			game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Sink end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_Freecam_Down.GetKeyCode(), keybind_Freecam_Up.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
 
 			local x, y = workspace.CurrentCamera.CFrame:ToOrientation()
 			freecamPosition = workspace.CurrentCamera.CFrame.Position
 			freecamRotation = Vector2.new(-y, -x)
 		else
-			game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Pass end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_FreecamDown.GetKeyCode(), keybind_FreecamUp.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
-			cam.CameraType = previousCamType
-
-			--[[
-			local stuff = APP_GUI:GetChildren()
-			
-			for i = 1, #stuff do
-				if stuff[i]:IsA("BoxHandleAdornment") then
-					stuff[i]:Destroy()
-				end
-			end
-			]]
+			-- Enable movement of character
+			camera.CameraType = prevCameraType
+			game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Pass end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_Freecam_Down.GetKeyCode(), keybind_Freecam_Up.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
 		end
 	end
 
-	if button_TeleportToPlayer.ButtonPressed() then
+	if switch_Freecam_Enabled.On() then
+		local freecamVelocity = Vector3.new(0, 0, 0)
+
+		local w = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.W)
+		local a = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.A)
+		local s = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.S)
+		local d = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.D)
+		local up = INPUT_SERVICE:IsKeyDown(keybind_Freecam_Up.GetKeyCode())
+		local down = INPUT_SERVICE:IsKeyDown(keybind_Freecam_Down.GetKeyCode())
+
+		if w and s or (not w and not s) then
+			freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, 0)
+		elseif w then
+			freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, -1)
+		elseif s then
+			freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, 1)
+		end
+
+		if a and d or (not a and not d) then
+			freecamVelocity = Vector3.new(0, freecamVelocity.Y, freecamVelocity.Z)
+		elseif a then
+			freecamVelocity = Vector3.new(-1, freecamVelocity.Y, freecamVelocity.Z)
+		elseif d then
+			freecamVelocity = Vector3.new(1, freecamVelocity.Y, freecamVelocity.Z)
+		end
+
+		if down and up or (not down and not up) then
+			freecamVelocity = Vector3.new(freecamVelocity.X, 0, freecamVelocity.Z)
+		elseif down then
+			freecamVelocity = Vector3.new(freecamVelocity.X, -1, freecamVelocity.Z)
+		elseif up then
+			freecamVelocity = Vector3.new(freecamVelocity.X, 1, freecamVelocity.Z)
+		end
+
+		if INPUT_SERVICE:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+			INPUT_SERVICE.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+
+			local delta = INPUT_SERVICE:GetMouseDelta()
+			local sens = INPUT_SERVICE.MouseDeltaSensitivity * input_Freecam_Sensitivity.GetInputTextAsNumber()
+
+			local x = delta.X * (sens * sens)
+			local y = delta.Y * (sens * sens)
+
+			freecamRotation = freecamRotation + Vector2.new(math.rad(x), math.rad(y))
+		else
+			INPUT_SERVICE.MouseBehavior = Enum.MouseBehavior.Default
+		end
+
+		-- Update Camera
+		local speedMultiplier = 1
+
+		if INPUT_SERVICE:IsKeyDown(Enum.KeyCode.LeftShift) then
+			speedMultiplier = speedMultiplier * 2
+		end
+
+		if INPUT_SERVICE:IsKeyDown(Enum.KeyCode.LeftControl) then
+			speedMultiplier = speedMultiplier * 0.3
+		end
+
+		local move = freecamVelocity.Unit * input_Freecam_Velocity.GetInputTextAsNumber() * deltaTime * speedMultiplier
+		if tostring(move.X) == "-nan(ind)" then move = Vector3.new(0, 0, 0) end
+
+		local look = -(CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).LookVector
+		local up = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).UpVector
+		local right = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).RightVector
+
+		freecamPosition = freecamPosition + (move.Z * look) + (move.X * right) + (move.Y * up)
+
+		camera.CameraType = Enum.CameraType.Scriptable
+		camera.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)
+	end
+
+	-- Teleport
+	if button_Teleport_To_Camera.GetPressCount() > 0 then
+		character:SetPrimaryPartCFrame(CFrame.new(camera.CFrame.Position)) -- Removes rotation
+	end
+	
+	if button_Teleport_To_Player.GetPressCount() > 0 then
 		pcall(function()
-			LOCAL_PLAYER.Character:SetPrimaryPartCFrame(MatchPlayerWithString(input_TeleportToPlayer.GetText()).Character:GetPrimaryPartCFrame())
+			character:SetPrimaryPartCFrame(MatchPlayerWithString(input_Teleport_To_Player_Target.GetInputText()).Character:GetPrimaryPartCFrame())
 		end)
 	end
-
-	if button_TeleportToCamera.ButtonPressed() then
-		if LOCAL_PLAYER.Character then
-			LOCAL_PLAYER.Character:SetPrimaryPartCFrame(CFrame.new(workspace.CurrentCamera.CFrame.Position))
-		end
-	end
-
-	if button_TeleportThrough.ButtonPressed() then
-		if LOCAL_PLAYER.Character then
-			local root = LOCAL_PLAYER.Character:FindFirstChild("HumanoidRootPart")
+	
+	if button_Teleport_Forward.GetPressCount() > 0 then
+		pcall(function()
+			local root = character:FindFirstChild("HumanoidRootPart")
 
 			if root then
-				LOCAL_PLAYER.Character:SetPrimaryPartCFrame(LOCAL_PLAYER.Character:GetPrimaryPartCFrame() * CFrame.new(0, 0, -input_TeleportThroughLength.GetNumber()))
+				character:SetPrimaryPartCFrame(character:GetPrimaryPartCFrame() * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber()))
 			end
+		end)
+	end
+	
+	-- Noclip
+	if switch_Noclip_Enabled.On() then
+		humanoid:ChangeState(11)
+	end
+	
+	-- Sit
+	if button_Sit.GetPressCount() > 0 then
+		if humanoid then
+			humanoid.Sit = true
 		end
 	end
+	
+	-- Fix Camera
+	if button_Fix_Camera.GetPressCount() > 0 then
+		camera.CameraType = Enum.CameraType.Custom
+	end
+	
+	-- Load World At Camera
+	if button_Load_World_At_Camera.GetPressCount() > 0 then
+		LOCAL_PLAYER:RequestStreamAroundAsync(camera.CFrame.Position)
+	end
+	
+	-- Aimbot
+	if game:GetService("UserInputService"):IsKeyDown(keybind_Aimbot_Engage.GetKeyCode()) and switch_Aimbot_Enabled.On() then
+		if aimbotTarget == nil then
+			-- Aimbot
 
-	pcall(function()
-		if switch_Freecam_Enabled.GetValue() == true and humanoid.Health > 0 then
-			do
-				spawn(function()
-					local w = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.W)
-					local a = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.A)
-					local s = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.S)
-					local d = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.D)
-					local down = INPUT_SERVICE:IsKeyDown(keybind_FreecamDown.GetKeyCode())
-					local up = INPUT_SERVICE:IsKeyDown(keybind_FreecamUp.GetKeyCode())
+			local target = nil
+			local minDistance = math.huge
+			local camDir = workspace.CurrentCamera.CFrame.LookVector
 
-					if w and s or (not w and not s) then
-						freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, 0)
-					elseif w then
-						freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, -1)
-					elseif s then
-						freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, 1)
+			for _, v in pairs(game.Players:GetPlayers()) do
+				if v.Character and v.Name ~= LOCAL_PLAYER.Name then
+					local checked = true
+
+					if not v.Character:FindFirstChild("Head") then
+						checked = false
 					end
 
-					if a and d or (not a and not d) then
-						freecamVelocity = Vector3.new(0, freecamVelocity.Y, freecamVelocity.Z)
-					elseif a then
-						freecamVelocity = Vector3.new(-1, freecamVelocity.Y, freecamVelocity.Z)
-					elseif d then
-						freecamVelocity = Vector3.new(1, freecamVelocity.Y, freecamVelocity.Z)
+					if v.Team == LOCAL_PLAYER.Team and switch_Aimbot_Team_Check.On() then
+						checked = false
 					end
-
-					if down and up or (not down and not up) then
-						freecamVelocity = Vector3.new(freecamVelocity.X, 0, freecamVelocity.Z)
-					elseif down then
-						freecamVelocity = Vector3.new(freecamVelocity.X, -1, freecamVelocity.Z)
-					elseif up then
-						freecamVelocity = Vector3.new(freecamVelocity.X, 1, freecamVelocity.Z)
-					end
-
-					if INPUT_SERVICE:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-						INPUT_SERVICE.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
-
-						local delta = INPUT_SERVICE:GetMouseDelta()
-						local sens = INPUT_SERVICE.MouseDeltaSensitivity * input_FreecamSensitivity.GetNumber()
-
-						local x = delta.X * (sens * sens)
-						local y = delta.Y * (sens * sens)
-
-						freecamRotation = freecamRotation + Vector2.new(math.rad(x), math.rad(y))
-					else
-						INPUT_SERVICE.MouseBehavior = Enum.MouseBehavior.Default
-					end
-				end)
-			end
-
-			-- Update Camera
-			local speedMultiplier = 1
-
-			if INPUT_SERVICE:IsKeyDown(Enum.KeyCode.LeftShift) then
-				speedMultiplier = speedMultiplier * 2
-			end
-
-			if INPUT_SERVICE:IsKeyDown(Enum.KeyCode.LeftControl) then
-				speedMultiplier = speedMultiplier * 0.3
-			end
-
-			local move = freecamVelocity.Unit * input_FreecamSpeed.GetNumber() * dt * speedMultiplier
-			if tostring(move.X) == "-nan(ind)" then move = Vector3.new(0, 0, 0) end
-
-			cam.CameraType = Enum.CameraType.Scriptable
-
-			local look = -(CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).LookVector
-			local up = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).UpVector
-			local right = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).RightVector
-
-			freecamPosition = freecamPosition + (move.Z * look) + (move.X * right) + (move.Y * up)
-			cam.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)
-		elseif previousCamType and switch_Freecam_Enabled.ValueChanged() then
-			freecamVelocity = Vector3.new(0, 0, 0)
-
-			cam.CameraType = previousCamType
-			previousCamType = cam.CameraType
-		else
-			previousCamType = cam.CameraType
-		end
-
-		if button_FixCamera.ButtonPressed() then
-			pcall(function()
-				cam.CameraType = Enum.CameraType.Custom
-				workspace.CurrentCamera.CameraSubject = humanoid
-			end)
-		end
-
-		if game:GetService("UserInputService"):IsKeyDown(keybind_Aimbot.GetKeyCode()) and switch_Aimbot_Enabled.GetValue() then
-			if aimbotTarget == nil then
-				-- Aimbot
-
-				local target = nil
-				local minDistance = math.huge
-				local camDir = workspace.CurrentCamera.CFrame.LookVector
-
-				for _, v in pairs(game.Players:GetPlayers()) do
-					if v.Character and v.Name ~= LOCAL_PLAYER.Name then
-						local checked = true
-
-						if not v.Character:FindFirstChild("Head") then
-							checked = false
-						end
-
-						if v.Team == LOCAL_PLAYER.Team and switch_Aimbot_TeamCheck_Enabled.GetValue() then
-							checked = false
-						end
-
-						if checked then
-							local testTarget = v.Character.Head
-
-							local targetDir = -(testTarget.Position - cam.CFrame.Position).Unit
-							local d = camDir:Dot(targetDir)
-
-							if d < minDistance then
-								minDistance = d
-								target = testTarget
+					
+					if switch_Aimbot_Wall_Check.On() then
+						local me = character:GetPrimaryPartCFrame().Position
+						local them = v.Character:GetPrimaryPartCFrame().Position
+						
+						local rayDirection = (them - me).Unit * (me - them).Magnitude
+						
+						local raycastParams = RaycastParams.new()
+						raycastParams.FilterDescendantsInstances = { v.Character, character }
+						raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+						
+						local raycastResult = workspace:Raycast(me, rayDirection, raycastParams)
+						
+						if raycastResult then
+							local part = raycastResult.Instance
+							
+							if part then
+								checked = false
 							end
 						end
 					end
-				end
 
-				if target then
-					aimbotTarget = target
-					workspace.CurrentCamera.CFrame = CFrame.new(cam.CFrame.Position, target.Position)
+					if checked then
+						local testTarget = v.Character.Head
+
+						local targetDir = -(testTarget.Position - camera.CFrame.Position).Unit
+						local d = camDir:Dot(targetDir)
+
+						if d < minDistance then
+							minDistance = d
+							target = testTarget
+						end
+					end
 				end
-			else
-				workspace.CurrentCamera.CFrame = CFrame.new(cam.CFrame.Position, aimbotTarget.Position)
+			end
+
+			if target then
+				aimbotTarget = target
+				camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
 			end
 		else
-			aimbotTarget = nil
+			camera.CFrame = CFrame.new(camera.CFrame.Position, aimbotTarget.Position)
 		end
-	end)
-	
-	-- Update ESP transparency
-	if input_ESP_Transparency.InputChanged() then
-		for _, v in pairs(APP_GUI:GetChildren()) do
-			if v:IsA("BoxHandleAdornment") and v.Name == "Box" then
-				v.Transparency = input_ESP_Transparency.GetNumber()
-			end
-		end
+	else
+		aimbotTarget = nil
 	end
-
-	-- Update Outputs
-	local camPosString = RoundNumber(cam.CFrame.Position.X, 2) .. ", " .. RoundNumber(cam.CFrame.Position.Y, 2) .. ", " .. RoundNumber(cam.CFrame.Position.Z, 2)
+	
+	-- Information
+	local camPosString = RoundNumber(camera.CFrame.Position.X, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Y, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Z, 2)
 	local charPosString = "N/A"
 	local charRotationString = "N/A"
 	local charVelocityString = "N/A"
 
-	if LOCAL_PLAYER.Character then
-		local root = LOCAL_PLAYER.Character.PrimaryPart
-		local humanoidRootPart = LOCAL_PLAYER.Character:FindFirstChild("HumanoidRootPart")
-		
+	if character then
+		local root = character.PrimaryPart
+		local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
 		if humanoidRootPart then
 			local x, y, z = humanoidRootPart.Orientation.X, humanoidRootPart.Orientation.Y, humanoidRootPart.Orientation.Z
-			
+
 			charRotationString = RoundNumber(x, 2) .. ", " .. RoundNumber(y, 2) .. ", " .. RoundNumber(z, 2)
 		end
-		
+
 		if root then
 			if root:IsA("BasePart") then
 				local x, y, z = root.Orientation.X, root.Orientation.Y, root.Orientation.Z
-				
+
 				charPosString = RoundNumber(root.Position.X, 2) .. ", " .. RoundNumber(root.Position.Y, 2) .. ", " .. RoundNumber(root.Position.Z, 2)
 				charVelocityString = RoundNumber(root.Velocity.Magnitude, 2) .. " sps"
 			end
 		end
 	end
-	
-	
+
+
 	do -- Count how many players are not loaded in
 		if tick() - lastTickCheckLoadedPlayers > 1 then -- Check only every second
 			lastTickCheckLoadedPlayers = tick()
-			
+
 			local notLoadedCount = 0
-			
+
 			for _, v in pairs(game.Players:GetPlayers()) do
 				local isLoaded = true
-				
+
 				if not v.Character then
 					isLoaded = false
 				elseif not v.Character:FindFirstChild("Head") then
 					isLoaded = false
 				end
-				
+
 				if isLoaded == false then
 					notLoadedCount = notLoadedCount + 1
 				end
 			end
-			
-			output_Freecam.EditStatus(1, "Players not loaded in: " .. notLoadedCount)
+
+			output_ESP.EditLabel(1, "Players not loaded in: " .. notLoadedCount)
 		end
 	end
-	
-	output_Camera.EditStatus(1, "Camera Position: " .. camPosString)
-	
-	output_Character.EditStatus(1, "Character Position: " .. charPosString)
-	output_Character.EditStatus(2, "Character Rotation: " .. charRotationString)
-	output_Character.EditStatus(3, "Character Velocity: " .. charVelocityString)
-	output_Character.EditStatus(4, "Walk Speed: N/A")
-	output_Character.EditStatus(5, "Jump Power: N/A")
-	output_Character.EditStatus(6, "Health: N/A")
-	
-	output_Misc.EditStatus(1, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
-	output_Misc.EditStatus(2, "Job ID: " .. game.JobId)
+
+	output_Camera.EditLabel(1, "Camera Position: " .. camPosString)
+
+	output_Character.EditLabel(1, "Character Position: " .. charPosString)
+	output_Character.EditLabel(2, "Character Rotation: " .. charRotationString)
+	output_Character.EditLabel(3, "Character Velocity: " .. charVelocityString)
+	output_Character.EditLabel(4, "Walk Speed: N/A")
+	output_Character.EditLabel(5, "Jump Power: N/A")
+	output_Character.EditLabel(6, "Health: N/A")
+
+	output_Server.EditLabel(1, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
+	output_Server.EditLabel(2, "Job ID: " .. game.JobId)
 
 	if humanoid then
-		output_Character.EditStatus(4, "Walk Speed: " .. humanoid.WalkSpeed)
-		output_Character.EditStatus(5, "Jump Power: " .. humanoid.JumpPower)
-		output_Character.EditStatus(6, "Health: " .. math.floor(humanoid.Health + 0.5) .. "/" .. math.floor(humanoid.MaxHealth + 0.5))
+		output_Character.EditLabel(4, "Walk Speed: " .. humanoid.WalkSpeed)
+		output_Character.EditLabel(5, "Jump Power: " .. humanoid.JumpPower)
+		output_Character.EditLabel(6, "Health: " .. math.floor(humanoid.Health + 0.5) .. "/" .. math.floor(humanoid.MaxHealth + 0.5))
 	end
-
-
-	lastTick = tick()
-	game:GetService("RunService").RenderStepped:Wait()
 end
 
-RemoveESPs()
+-- Bind process function to render step. Priority set to last so we can have control over everything (maybe)
+local uniqueId = game:GetService("HttpService"):GenerateGUID(false)
+RUN_SERVICE:BindToRenderStep(uniqueId, Enum.RenderPriority.Last.Value, Process)
 
-if switch_Freecam_Enabled.GetValue() == true then
-	workspace.CurrentCamera.CameraType = previousCamType
-	game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Pass end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_FreecamDown.GetKeyCode(), keybind_FreecamUp.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
+-- Wait until window is closed
+repeat RUN_SERVICE.RenderStepped:Wait() until window.IsActive() == false
+
+RUN_SERVICE:UnbindFromRenderStep(uniqueId) -- Unbind loop
+applicationGui:Destroy() -- Destroy GUI
+SCRIPT_ENABLED = false
+
+for _, v in pairs(ALL_CONNECTIONS) do
+	pcall(function()
+		v:Disconnect()
+	end)
 end
 
-inputChangedConnection:Disconnect()
+if switch_Freecam_Enabled.On() then
+	workspace.CurrentCamera.CameraType = prevCameraType
+	game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Pass end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_Freecam_Down.GetKeyCode(), keybind_Freecam_Up.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
+end
+
+script.Parent = nil -- Connections are destroyed if parent set to nil
