@@ -1396,9 +1396,17 @@ local function Process(deltaTime)
 						checked = false
 					end
 					
+					do -- Check if on screen
+						local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(v.Character.Head.Position)
+						
+						if not onScreen then
+							checked = false
+						end
+					end
+					
 					if switch_Aimbot_Wall_Check.On() then
 						local me = character:GetPrimaryPartCFrame().Position
-						local them = v.Character:GetPrimaryPartCFrame().Position
+						local them = v.Character.Head.Position
 						
 						local rayDirection = (them - me).Unit * (me - them).Magnitude
 						
