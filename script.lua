@@ -1019,20 +1019,6 @@ local function CreateESPForPlayer(plr)
 			table.insert(ALL_CONNECTIONS, connection)
 		end
 
-		for _, v in pairs(character:GetChildren()) do
-			if v:IsA("BasePart") then
-				AddBox(v)
-			elseif v:IsA("Tool") then
-				item.Text = "Holding: " .. v.Name
-				
-				for _, c in pairs(v:GetChildren()) do
-					if v:IsA("BasePart") then
-						AddBox(c)
-					end
-				end
-			end
-		end
-
 		local addedConnection = character.ChildAdded:Connect(function(c)
 			if c:IsA("BasePart") and c.Name ~= "HumanoidRootPart" then
 				AddBox(c)
@@ -1052,6 +1038,20 @@ local function CreateESPForPlayer(plr)
 				end
 			end
 		end)
+		
+		for _, v in pairs(character:GetChildren()) do
+			if v:IsA("BasePart") then
+				AddBox(v)
+			elseif v:IsA("Tool") then
+				item.Text = "Holding: " .. v.Name
+
+				for _, c in pairs(v:GetChildren()) do
+					if v:IsA("BasePart") then
+						AddBox(c)
+					end
+				end
+			end
+		end
 
 		table.insert(eventConnections, addedConnection)
 		table.insert(eventConnections, removedConnection)
