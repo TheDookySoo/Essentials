@@ -833,6 +833,8 @@ local elementsContainer = CreateScrollingFrame(window.GetBackground(), UDim2.new
 local folder_ESP = CreateFolder(elementsContainer, "ESP")
 local switch_ESP_Enabled = CreateSwitch(folder_ESP, "ESP Enabled", false)
 local switch_Freecam_Enabled = CreateSwitch(folder_ESP, "Freecam Enabled", false)
+CreatePadding(folder_ESP, 2)
+local input_Isolate_Player = CreateInput(folder_ESP, "Isolate Player", "")
 
 -- Teleport
 local folder_Teleport = CreateFolder(elementsContainer, "Teleport")
@@ -852,7 +854,6 @@ local switch_Use_Display_Name = CreateSwitch(folder_ESP_Settings, "Use Display N
 local switch_Label_Item_In_Hand = CreateSwitch(folder_ESP_Settings, "Label Item In Hand", false)
 local switch_Show_Distance = CreateSwitch(folder_ESP_Settings, "Show Distance", false)
 local input_ESP_Transparency = CreateInput(folder_ESP_Settings, "ESP Transparency", 0.9)
-local input_Isolate_Player = CreateInput(folder_ESP_Settings, "Isolate Player", "")
 
 -- Freecam Settings
 local folder_Freecam_Settings = CreateFolder(elementsContainer, "Freecam Settings")
@@ -1376,13 +1377,13 @@ local function Process(deltaTime)
 	end
 	
 	-- Aimbot
-	if game:GetService("UserInputService"):IsKeyDown(keybind_Aimbot_Engage.GetKeyCode()) and switch_Aimbot_Enabled.On() then
+	if INPUT_SERVICE:IsKeyDown(keybind_Aimbot_Engage.GetKeyCode()) and switch_Aimbot_Enabled.On() then
 		if aimbotTarget == nil then
 			-- Aimbot
 
 			local target = nil
 			local minDistance = math.huge
-			local camDir = workspace.CurrentCamera.CFrame.LookVector
+			local camDir = camera.CFrame.LookVector
 
 			for _, v in pairs(game.Players:GetPlayers()) do
 				if v.Character and v.Name ~= LOCAL_PLAYER.Name then
@@ -1397,7 +1398,7 @@ local function Process(deltaTime)
 					end
 					
 					do -- Check if on screen
-						local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(v.Character.Head.Position)
+						local pos, onScreen = camera:WorldToScreenPoint(v.Character.Head.Position)
 						
 						if not onScreen then
 							checked = false
