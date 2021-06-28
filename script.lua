@@ -1290,8 +1290,12 @@ local function Process(deltaTime)
 		end
 		
 		-- Value should match the number of players not loaded in
-		output_ESP.EditLabel(2, "Missing Tags: " .. #game.Players:GetPlayers() - #espTagFolder:GetChildren() - 1)
-
+		if switch_ESP_Enabled.On() then
+			output_ESP.EditLabel(2, "Missing Tags: " .. #game.Players:GetPlayers() - #espTagFolder:GetChildren() - 1)
+		else
+			output_ESP.EditLabel(2, "Missing Tags: " .. 0)
+		end
+		
 		-- Freecam
 		if switch_Freecam_Enabled.ValueChanged() then
 			if switch_Freecam_Enabled.On() then
