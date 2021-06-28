@@ -1091,9 +1091,10 @@ local function CreateESPForPlayer(plr)
 				stopLoop = true
 			end
 			
-			if switch_Show_Tags.On() == false then
-				tag.Visible = false
-				return
+			if head == nil then
+				stopLoop = true
+			elseif not head:IsDescendantOf(workspace) then
+				stopLoop = true
 			end
 			
 			-- Check if we can continue
@@ -1181,8 +1182,8 @@ local function CreateESPForPlayer(plr)
 			tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
 
 			local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
-			tag.Visible = true
 			tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - offset)
+			tag.Visible = switch_Show_Tags.On()
 		end
 		
 		local function pcallProcess()
