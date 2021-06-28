@@ -1293,7 +1293,7 @@ local function Process(deltaTime)
 		if switch_ESP_Enabled.On() then
 			output_ESP.EditLabel(2, "Missing Tags: " .. #game.Players:GetPlayers() - #espTagFolder:GetChildren() - 1)
 		else
-			output_ESP.EditLabel(2, "Missing Tags: " .. 0)
+			output_ESP.EditLabel(2, "Missing Tags: N/A")
 		end
 		
 		-- Freecam
