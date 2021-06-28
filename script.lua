@@ -854,6 +854,7 @@ local switch_Use_Display_Name = CreateSwitch(folder_ESP_Settings, "Use Display N
 local switch_Label_Item_In_Hand = CreateSwitch(folder_ESP_Settings, "Label Item In Hand", false)
 local switch_Show_Distance = CreateSwitch(folder_ESP_Settings, "Show Distance", false)
 local input_ESP_Transparency = CreateInput(folder_ESP_Settings, "ESP Transparency", 0.9)
+local input_Tag_Transparency = CreateInput(folder_ESP_Settings, "Tag Transparency", 0)
 
 -- Freecam Settings
 local folder_Freecam_Settings = CreateFolder(elementsContainer, "Freecam Settings")
@@ -1161,7 +1162,7 @@ local function CreateESPForPlayer(plr)
 			end
 
 			if switch_Bold_Tags.On() then
-				tag.TextStrokeTransparency = 0
+				tag.TextStrokeTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 
 				local color = tag.TextColor3
 				local v = (color.R + color.G + color.B) / 3
@@ -1198,6 +1199,7 @@ local function CreateESPForPlayer(plr)
 			
 			tag.Text = tagText
 			tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+			tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 
 			local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
 			tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - offset)
