@@ -878,7 +878,7 @@ local button_Load_World_At_Camera = CreateButton(folder_Misc, "Load World At Cam
 
 -- Information
 local folder_Information = CreateFolder(elementsContainer, "Information")
-local output_ESP = CreateOutput(folder_Information, 1)
+local output_ESP = CreateOutput(folder_Information, 2)
 local output_Camera = CreateOutput(folder_Information, 1)
 local output_Character = CreateOutput(folder_Information, 6)
 local output_Server = CreateOutput(folder_Information, 2)
@@ -933,8 +933,15 @@ end)
 table.insert(ALL_CONNECTIONS, inputChangedConnection)
 
 -- ESP
+local lastMissingESPCheckTick = tick()
+local espList = {}
+
 local function CreateESPForPlayer(plr)
 	if switch_ESP_Enabled.On() == false then return end
+	if espTagFolder:FindFirstChild(plr.Name) then return end
+	
+	if espList[plr.Name] then return end
+	espList[plr.Name] = true
 	
 	local thread = coroutine.create(function()
 		do
@@ -945,7 +952,8 @@ local function CreateESPForPlayer(plr)
 				wait()
 			until plr.Character or steps > 200
 			
-			if plr.Character == nil then
+			if plr.Character == nil or steps > 200 then
+				espList[plr.Name] = false
 				return
 			end
 		end
@@ -959,11 +967,16 @@ local function CreateESPForPlayer(plr)
 		local head = character:FindFirstChild("Head")
 
 		if head == nil then
-			head = character:GetPrimaryPart()
+			head = character.PrimaryPart
+			
+			if head == nil then
+				espList[plr.Name] = false
+				return
+			end
 		end
 
 		local tag = Instance.new("TextLabel", espTagFolder)
-		tag.Name = ""
+		tag.Name = plr.Name
 		tag.Font = Enum.Font.GothamSemibold
 		tag.BackgroundTransparency = 1
 		tag.AnchorPoint = Vector2.new(0.5, 1)
@@ -1148,18 +1161,29 @@ local function CreateESPForPlayer(plr)
 				end
 			end
 		end
+		
+		local function pcallProcess()
+			local success = pcall(Process)
+			
+			if not success then
+				stopLoop = true
+			end
+		end
 
 		local uniqueId = game:GetService("HttpService"):GenerateGUID(false)
-		RUN_SERVICE:BindToRenderStep(uniqueId, Enum.RenderPriority.Last.Value, Process)
+		RUN_SERVICE:BindToRenderStep(uniqueId, Enum.RenderPriority.Last.Value, pcallProcess)
 		repeat RUN_SERVICE.RenderStepped:Wait() until stopLoop
 		RUN_SERVICE:UnbindFromRenderStep(uniqueId)
 
 		tag:Destroy()
-
+		espList[plr.Name] = false
+		
+		-- Destroy connections
 		for _, connection in pairs(eventConnections) do
 			connection:Disconnect()
 		end
-
+		
+		-- Destroy boxes
 		for _, v in pairs(boxes) do
 			if v ~= nil then
 				v:Destroy()
@@ -1170,7 +1194,7 @@ local function CreateESPForPlayer(plr)
 	coroutine.resume(thread)
 end
 
--- Add ESP
+-- Add ESP for all players that exist
 for _, v in pairs(game.Players:GetPlayers()) do
 	if v ~= LOCAL_PLAYER then
 		CreateESPForPlayer(v)
@@ -1183,7 +1207,8 @@ for _, v in pairs(game.Players:GetPlayers()) do
 	end
 end
 
-game.Players.PlayerAdded:Connect(function(plr)
+-- Add ESP for all players that will join the game
+local plrAdded = game.Players.PlayerAdded:Connect(function(plr)
 	local c = plr.CharacterAdded:Connect(function()
 		CreateESPForPlayer(plr)
 	end)
@@ -1191,333 +1216,362 @@ game.Players.PlayerAdded:Connect(function(plr)
 	table.insert(ALL_CONNECTIONS, c)
 end)
 
+table.insert(ALL_CONNECTIONS, plrAdded)
+
 -- Process is called every frame
 local function Process(deltaTime)
-	local camera = workspace.CurrentCamera
+	local success, err = pcall(function()
+		local camera = workspace.CurrentCamera
 
-	-- Find character and humanoid
-	local character = LOCAL_PLAYER.Character
-	local humanoid = nil
+		-- Find character and humanoid
+		local character = LOCAL_PLAYER.Character
+		local humanoid = nil
 
-	if character then
-		humanoid = character:FindFirstChild("Humanoid")
-	end
+		if character then
+			humanoid = character:FindFirstChild("Humanoid")
+		end
 
-	-- Cursor handling
-	local winPos = window.GetBackground().AbsolutePosition
-	local winSize = window.GetBackground().AbsoluteSize
+		-- Cursor handling
+		local winPos = window.GetBackground().AbsolutePosition
+		local winSize = window.GetBackground().AbsoluteSize
 
-	cursor.Position = UDim2.new(0, MOUSE.X, 0, MOUSE.Y)
+		cursor.Position = UDim2.new(0, MOUSE.X, 0, MOUSE.Y)
 
-	if MOUSE.X > winPos.X and MOUSE.X < winPos.X + winSize.X and MOUSE.Y > winPos.Y and MOUSE.Y < winPos.Y + winSize.Y then
-		cursor.Visible = true
-	else
-		cursor.Visible = false
-	end
+		if MOUSE.X > winPos.X and MOUSE.X < winPos.X + winSize.X and MOUSE.Y > winPos.Y and MOUSE.Y < winPos.Y + winSize.Y then
+			cursor.Visible = true
+		else
+			cursor.Visible = false
+		end
 
+		-- ESP
+		if switch_ESP_Enabled.ValueChanged() then
+			if switch_ESP_Enabled.On() then
+				for _, v in pairs(game.Players:GetPlayers()) do
+					if v ~= LOCAL_PLAYER then
+						CreateESPForPlayer(v)
+					end
+				end
+			else
+				for _, v in pairs(espBoxFolder:GetChildren()) do
+					v:Destroy()
+				end
 
-
-	-- ESP
-	if switch_ESP_Enabled.ValueChanged() then
-		if switch_ESP_Enabled.On() then
-			for _, v in pairs(game.Players:GetPlayers()) do
-				if v ~= LOCAL_PLAYER then
-					CreateESPForPlayer(v)
+				for _, v in pairs(espTagFolder:GetChildren()) do
+					v:Destroy()
 				end
 			end
-		else
+		end
+
+		if input_ESP_Transparency.InputChanged() then
 			for _, v in pairs(espBoxFolder:GetChildren()) do
-				v:Destroy()
-			end
-
-			for _, v in pairs(espTagFolder:GetChildren()) do
-				v:Destroy()
+				if v:IsA("BoxHandleAdornment") then
+					v.Transparency = input_ESP_Transparency.GetInputTextAsNumber()
+				end
 			end
 		end
-	end
-
-	if input_ESP_Transparency.InputChanged() then
-		for _, v in pairs(espBoxFolder:GetChildren()) do
-			if v:IsA("BoxHandleAdornment") then
-				v.Transparency = input_ESP_Transparency.GetInputTextAsNumber()
-			end
-		end
-	end
-
-	-- Freecam
-	if switch_Freecam_Enabled.ValueChanged() then
-		if switch_Freecam_Enabled.On() then
-			-- Disable movement of character while in freecam
-			prevCameraType = camera.CameraType
-			game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Sink end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_Freecam_Down.GetKeyCode(), keybind_Freecam_Up.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
-
-			local x, y = workspace.CurrentCamera.CFrame:ToOrientation()
-			freecamPosition = workspace.CurrentCamera.CFrame.Position
-			freecamRotation = Vector2.new(-y, -x)
-		else
-			-- Enable movement of character
-			camera.CameraType = prevCameraType
-			game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Pass end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_Freecam_Down.GetKeyCode(), keybind_Freecam_Up.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
-		end
-	end
-
-	if switch_Freecam_Enabled.On() then
-		local freecamVelocity = Vector3.new(0, 0, 0)
-
-		local w = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.W)
-		local a = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.A)
-		local s = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.S)
-		local d = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.D)
-		local up = INPUT_SERVICE:IsKeyDown(keybind_Freecam_Up.GetKeyCode())
-		local down = INPUT_SERVICE:IsKeyDown(keybind_Freecam_Down.GetKeyCode())
-
-		if w and s or (not w and not s) then
-			freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, 0)
-		elseif w then
-			freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, -1)
-		elseif s then
-			freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, 1)
-		end
-
-		if a and d or (not a and not d) then
-			freecamVelocity = Vector3.new(0, freecamVelocity.Y, freecamVelocity.Z)
-		elseif a then
-			freecamVelocity = Vector3.new(-1, freecamVelocity.Y, freecamVelocity.Z)
-		elseif d then
-			freecamVelocity = Vector3.new(1, freecamVelocity.Y, freecamVelocity.Z)
-		end
-
-		if down and up or (not down and not up) then
-			freecamVelocity = Vector3.new(freecamVelocity.X, 0, freecamVelocity.Z)
-		elseif down then
-			freecamVelocity = Vector3.new(freecamVelocity.X, -1, freecamVelocity.Z)
-		elseif up then
-			freecamVelocity = Vector3.new(freecamVelocity.X, 1, freecamVelocity.Z)
-		end
-
-		if INPUT_SERVICE:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-			INPUT_SERVICE.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
-
-			local delta = INPUT_SERVICE:GetMouseDelta()
-			local sens = INPUT_SERVICE.MouseDeltaSensitivity * input_Freecam_Sensitivity.GetInputTextAsNumber()
-
-			local x = delta.X * (sens * sens)
-			local y = delta.Y * (sens * sens)
-
-			freecamRotation = freecamRotation + Vector2.new(math.rad(x), math.rad(y))
-		else
-			INPUT_SERVICE.MouseBehavior = Enum.MouseBehavior.Default
-		end
-
-		-- Update Camera
-		local speedMultiplier = 1
-
-		if INPUT_SERVICE:IsKeyDown(Enum.KeyCode.LeftShift) then
-			speedMultiplier = speedMultiplier * 2
-		end
-
-		if INPUT_SERVICE:IsKeyDown(Enum.KeyCode.LeftControl) then
-			speedMultiplier = speedMultiplier * 0.3
-		end
-
-		local move = freecamVelocity.Unit * input_Freecam_Velocity.GetInputTextAsNumber() * deltaTime * speedMultiplier
-		if tostring(move.X) == "-nan(ind)" then move = Vector3.new(0, 0, 0) end
-
-		local look = -(CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).LookVector
-		local up = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).UpVector
-		local right = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).RightVector
-
-		freecamPosition = freecamPosition + (move.Z * look) + (move.X * right) + (move.Y * up)
-
-		camera.CameraType = Enum.CameraType.Scriptable
-		camera.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)
-	end
-
-	-- Teleport
-	if button_Teleport_To_Camera.GetPressCount() > 0 then
-		character:SetPrimaryPartCFrame(CFrame.new(camera.CFrame.Position)) -- Removes rotation
-	end
-	
-	if button_Teleport_To_Player.GetPressCount() > 0 then
-		pcall(function()
-			character:SetPrimaryPartCFrame(MatchPlayerWithString(input_Teleport_To_Player_Target.GetInputText()).Character:GetPrimaryPartCFrame())
-		end)
-	end
-	
-	if button_Teleport_Forward.GetPressCount() > 0 then
-		pcall(function()
-			local root = character:FindFirstChild("HumanoidRootPart")
-
-			if root then
-				character:SetPrimaryPartCFrame(character:GetPrimaryPartCFrame() * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber()))
-			end
-		end)
-	end
-	
-	-- Noclip
-	if switch_Noclip_Enabled.On() then
-		humanoid:ChangeState(11)
-	end
-	
-	-- Sit
-	if button_Sit.GetPressCount() > 0 then
-		if humanoid then
-			humanoid.Sit = true
-		end
-	end
-	
-	-- Fix Camera
-	if button_Fix_Camera.GetPressCount() > 0 then
-		camera.CameraType = Enum.CameraType.Custom
-	end
-	
-	-- Load World At Camera
-	if button_Load_World_At_Camera.GetPressCount() > 0 then
-		LOCAL_PLAYER:RequestStreamAroundAsync(camera.CFrame.Position)
-	end
-	
-	-- Aimbot
-	if INPUT_SERVICE:IsKeyDown(keybind_Aimbot_Engage.GetKeyCode()) and switch_Aimbot_Enabled.On() then
-		if aimbotTarget == nil then
-			-- Aimbot
-
-			local target = nil
-			local minDistance = math.huge
-			local camDir = camera.CFrame.LookVector
-
+		
+		-- Detect players without ESP (probably because of StreamingEnabled)
+		if tick() - lastMissingESPCheckTick > 0.5 and switch_ESP_Enabled.On() then
+			lastMissingESPCheckTick = tick()
+			
+			local missingPlayers = {}
+			
 			for _, v in pairs(game.Players:GetPlayers()) do
-				if v.Character and v.Name ~= LOCAL_PLAYER.Name then
-					local checked = true
+				if not espTagFolder:FindFirstChild(v.Name) and v ~= LOCAL_PLAYER then
+					table.insert(missingPlayers, v)
+				end
+			end
+			
+			for i, v in pairs(missingPlayers) do
+				CreateESPForPlayer(v)
+				
+				local x = espList[v.Name] and "true" or "false"
+			end
+		end
+		
+		-- Value should match the number of players not loaded in
+		output_ESP.EditLabel(2, "Missing Tags: " .. #game.Players:GetPlayers() - #espTagFolder:GetChildren() - 1)
 
-					if not v.Character:FindFirstChild("Head") then
-						checked = false
-					end
+		-- Freecam
+		if switch_Freecam_Enabled.ValueChanged() then
+			if switch_Freecam_Enabled.On() then
+				-- Disable movement of character while in freecam
+				prevCameraType = camera.CameraType
+				game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Sink end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_Freecam_Down.GetKeyCode(), keybind_Freecam_Up.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
 
-					if v.Team == LOCAL_PLAYER.Team and switch_Aimbot_Team_Check.On() then
-						checked = false
-					end
-					
-					do -- Check if on screen
-						local pos, onScreen = camera:WorldToScreenPoint(v.Character.Head.Position)
-						
-						if not onScreen then
+				local x, y = workspace.CurrentCamera.CFrame:ToOrientation()
+				freecamPosition = workspace.CurrentCamera.CFrame.Position
+				freecamRotation = Vector2.new(-y, -x)
+			else
+				-- Enable movement of character
+				camera.CameraType = prevCameraType
+				game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Pass end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_Freecam_Down.GetKeyCode(), keybind_Freecam_Up.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
+			end
+		end
+
+		if switch_Freecam_Enabled.On() then
+			local freecamVelocity = Vector3.new(0, 0, 0)
+
+			local w = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.W)
+			local a = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.A)
+			local s = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.S)
+			local d = INPUT_SERVICE:IsKeyDown(Enum.KeyCode.D)
+			local up = INPUT_SERVICE:IsKeyDown(keybind_Freecam_Up.GetKeyCode())
+			local down = INPUT_SERVICE:IsKeyDown(keybind_Freecam_Down.GetKeyCode())
+
+			if w and s or (not w and not s) then
+				freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, 0)
+			elseif w then
+				freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, -1)
+			elseif s then
+				freecamVelocity = Vector3.new(freecamVelocity.X, freecamVelocity.Y, 1)
+			end
+
+			if a and d or (not a and not d) then
+				freecamVelocity = Vector3.new(0, freecamVelocity.Y, freecamVelocity.Z)
+			elseif a then
+				freecamVelocity = Vector3.new(-1, freecamVelocity.Y, freecamVelocity.Z)
+			elseif d then
+				freecamVelocity = Vector3.new(1, freecamVelocity.Y, freecamVelocity.Z)
+			end
+
+			if down and up or (not down and not up) then
+				freecamVelocity = Vector3.new(freecamVelocity.X, 0, freecamVelocity.Z)
+			elseif down then
+				freecamVelocity = Vector3.new(freecamVelocity.X, -1, freecamVelocity.Z)
+			elseif up then
+				freecamVelocity = Vector3.new(freecamVelocity.X, 1, freecamVelocity.Z)
+			end
+
+			if INPUT_SERVICE:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+				INPUT_SERVICE.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+
+				local delta = INPUT_SERVICE:GetMouseDelta()
+				local sens = INPUT_SERVICE.MouseDeltaSensitivity * input_Freecam_Sensitivity.GetInputTextAsNumber()
+
+				local x = delta.X * (sens * sens)
+				local y = delta.Y * (sens * sens)
+
+				freecamRotation = freecamRotation + Vector2.new(math.rad(x), math.rad(y))
+			else
+				INPUT_SERVICE.MouseBehavior = Enum.MouseBehavior.Default
+			end
+
+			-- Update Camera
+			local speedMultiplier = 1
+
+			if INPUT_SERVICE:IsKeyDown(Enum.KeyCode.LeftShift) then
+				speedMultiplier = speedMultiplier * 2
+			end
+
+			if INPUT_SERVICE:IsKeyDown(Enum.KeyCode.LeftControl) then
+				speedMultiplier = speedMultiplier * 0.3
+			end
+
+			local move = freecamVelocity.Unit * input_Freecam_Velocity.GetInputTextAsNumber() * deltaTime * speedMultiplier
+			if tostring(move.X) == "-nan(ind)" then move = Vector3.new(0, 0, 0) end
+
+			local look = -(CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).LookVector
+			local up = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).UpVector
+			local right = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).RightVector
+
+			freecamPosition = freecamPosition + (move.Z * look) + (move.X * right) + (move.Y * up)
+
+			camera.CameraType = Enum.CameraType.Scriptable
+			camera.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)
+		end
+
+		-- Teleport
+		if button_Teleport_To_Camera.GetPressCount() > 0 then
+			character:SetPrimaryPartCFrame(CFrame.new(camera.CFrame.Position)) -- Removes rotation
+		end
+		
+		if button_Teleport_To_Player.GetPressCount() > 0 then
+			pcall(function()
+				character:SetPrimaryPartCFrame(MatchPlayerWithString(input_Teleport_To_Player_Target.GetInputText()).Character:GetPrimaryPartCFrame())
+			end)
+		end
+		
+		if button_Teleport_Forward.GetPressCount() > 0 then
+			pcall(function()
+				local root = character:FindFirstChild("HumanoidRootPart")
+
+				if root then
+					character:SetPrimaryPartCFrame(character:GetPrimaryPartCFrame() * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber()))
+				end
+			end)
+		end
+		
+		-- Noclip
+		if switch_Noclip_Enabled.On() then
+			humanoid:ChangeState(11)
+		end
+		
+		-- Sit
+		if button_Sit.GetPressCount() > 0 then
+			if humanoid then
+				humanoid.Sit = true
+			end
+		end
+		
+		-- Fix Camera
+		if button_Fix_Camera.GetPressCount() > 0 then
+			camera.CameraType = Enum.CameraType.Custom
+		end
+		
+		-- Load World At Camera
+		if button_Load_World_At_Camera.GetPressCount() > 0 then
+			LOCAL_PLAYER:RequestStreamAroundAsync(camera.CFrame.Position)
+		end
+		
+		-- Aimbot
+		if INPUT_SERVICE:IsKeyDown(keybind_Aimbot_Engage.GetKeyCode()) and switch_Aimbot_Enabled.On() then
+			if aimbotTarget == nil then
+				-- Aimbot
+
+				local target = nil
+				local minDistance = math.huge
+				local camDir = camera.CFrame.LookVector
+
+				for _, v in pairs(game.Players:GetPlayers()) do
+					if v.Character and v.Name ~= LOCAL_PLAYER.Name then
+						local checked = true
+
+						if not v.Character:FindFirstChild("Head") then
 							checked = false
 						end
-					end
-					
-					if switch_Aimbot_Wall_Check.On() then
-						local me = character:GetPrimaryPartCFrame().Position
-						local them = v.Character.Head.Position
+
+						if v.Team == LOCAL_PLAYER.Team and switch_Aimbot_Team_Check.On() then
+							checked = false
+						end
 						
-						local rayDirection = (them - me).Unit * (me - them).Magnitude
-						
-						local raycastParams = RaycastParams.new()
-						raycastParams.FilterDescendantsInstances = { v.Character, character }
-						raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-						
-						local raycastResult = workspace:Raycast(me, rayDirection, raycastParams)
-						
-						if raycastResult then
-							local part = raycastResult.Instance
+						do -- Check if on screen
+							local pos, onScreen = camera:WorldToScreenPoint(v.Character.Head.Position)
 							
-							if part then
+							if not onScreen then
 								checked = false
 							end
 						end
-					end
+						
+						if switch_Aimbot_Wall_Check.On() then
+							local me = character:GetPrimaryPartCFrame().Position
+							local them = v.Character.Head.Position
+							
+							local rayDirection = (them - me).Unit * (me - them).Magnitude
+							
+							local raycastParams = RaycastParams.new()
+							raycastParams.FilterDescendantsInstances = { v.Character, character }
+							raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+							
+							local raycastResult = workspace:Raycast(me, rayDirection, raycastParams)
+							
+							if raycastResult then
+								local part = raycastResult.Instance
+								
+								if part then
+									checked = false
+								end
+							end
+						end
 
-					if checked then
-						local testTarget = v.Character.Head
+						if checked then
+							local testTarget = v.Character.Head
 
-						local targetDir = -(testTarget.Position - camera.CFrame.Position).Unit
-						local d = camDir:Dot(targetDir)
+							local targetDir = -(testTarget.Position - camera.CFrame.Position).Unit
+							local d = camDir:Dot(targetDir)
 
-						if d < minDistance then
-							minDistance = d
-							target = testTarget
+							if d < minDistance then
+								minDistance = d
+								target = testTarget
+							end
 						end
 					end
 				end
-			end
 
-			if target then
-				aimbotTarget = target
-				camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
+				if target then
+					aimbotTarget = target
+					camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
+				end
+			else
+				camera.CFrame = CFrame.new(camera.CFrame.Position, aimbotTarget.Position)
 			end
 		else
-			camera.CFrame = CFrame.new(camera.CFrame.Position, aimbotTarget.Position)
+			aimbotTarget = nil
 		end
-	else
-		aimbotTarget = nil
-	end
+		
+		-- Information
+		local camPosString = RoundNumber(camera.CFrame.Position.X, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Y, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Z, 2)
+		local charPosString = "N/A"
+		local charRotationString = "N/A"
+		local charVelocityString = "N/A"
+
+		if character then
+			local root = character.PrimaryPart
+			local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+			if humanoidRootPart then
+				local x, y, z = humanoidRootPart.Orientation.X, humanoidRootPart.Orientation.Y, humanoidRootPart.Orientation.Z
+
+				charRotationString = RoundNumber(x, 2) .. ", " .. RoundNumber(y, 2) .. ", " .. RoundNumber(z, 2)
+			end
+
+			if root then
+				if root:IsA("BasePart") then
+					local x, y, z = root.Orientation.X, root.Orientation.Y, root.Orientation.Z
+
+					charPosString = RoundNumber(root.Position.X, 2) .. ", " .. RoundNumber(root.Position.Y, 2) .. ", " .. RoundNumber(root.Position.Z, 2)
+					charVelocityString = RoundNumber(root.Velocity.Magnitude, 2) .. " sps"
+				end
+			end
+		end
+
+
+		do -- Count how many players are not loaded in
+			if tick() - lastTickCheckLoadedPlayers > 1 then -- Check only every second
+				lastTickCheckLoadedPlayers = tick()
+
+				local notLoadedCount = 0
+
+				for _, v in pairs(game.Players:GetPlayers()) do
+					local isLoaded = true
+
+					if not v.Character then
+						isLoaded = false
+					elseif not v.Character:FindFirstChild("Head") then
+						isLoaded = false
+					end
+
+					if isLoaded == false then
+						notLoadedCount = notLoadedCount + 1
+					end
+				end
+
+				output_ESP.EditLabel(1, "Players not loaded in: " .. notLoadedCount)
+			end
+		end
+
+		output_Camera.EditLabel(1, "Camera Position: " .. camPosString)
+
+		output_Character.EditLabel(1, "Character Position: " .. charPosString)
+		output_Character.EditLabel(2, "Character Rotation: " .. charRotationString)
+		output_Character.EditLabel(3, "Character Velocity: " .. charVelocityString)
+		output_Character.EditLabel(4, "Walk Speed: N/A")
+		output_Character.EditLabel(5, "Jump Power: N/A")
+		output_Character.EditLabel(6, "Health: N/A")
+
+		output_Server.EditLabel(1, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
+		output_Server.EditLabel(2, "Job ID: " .. game.JobId)
+
+		if humanoid then
+			output_Character.EditLabel(4, "Walk Speed: " .. humanoid.WalkSpeed)
+			output_Character.EditLabel(5, "Jump Power: " .. humanoid.JumpPower)
+			output_Character.EditLabel(6, "Health: " .. math.floor(humanoid.Health + 0.5) .. "/" .. math.floor(humanoid.MaxHealth + 0.5))
+		end
+	end)
 	
-	-- Information
-	local camPosString = RoundNumber(camera.CFrame.Position.X, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Y, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Z, 2)
-	local charPosString = "N/A"
-	local charRotationString = "N/A"
-	local charVelocityString = "N/A"
-
-	if character then
-		local root = character.PrimaryPart
-		local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-
-		if humanoidRootPart then
-			local x, y, z = humanoidRootPart.Orientation.X, humanoidRootPart.Orientation.Y, humanoidRootPart.Orientation.Z
-
-			charRotationString = RoundNumber(x, 2) .. ", " .. RoundNumber(y, 2) .. ", " .. RoundNumber(z, 2)
-		end
-
-		if root then
-			if root:IsA("BasePart") then
-				local x, y, z = root.Orientation.X, root.Orientation.Y, root.Orientation.Z
-
-				charPosString = RoundNumber(root.Position.X, 2) .. ", " .. RoundNumber(root.Position.Y, 2) .. ", " .. RoundNumber(root.Position.Z, 2)
-				charVelocityString = RoundNumber(root.Velocity.Magnitude, 2) .. " sps"
-			end
-		end
-	end
-
-
-	do -- Count how many players are not loaded in
-		if tick() - lastTickCheckLoadedPlayers > 1 then -- Check only every second
-			lastTickCheckLoadedPlayers = tick()
-
-			local notLoadedCount = 0
-
-			for _, v in pairs(game.Players:GetPlayers()) do
-				local isLoaded = true
-
-				if not v.Character then
-					isLoaded = false
-				elseif not v.Character:FindFirstChild("Head") then
-					isLoaded = false
-				end
-
-				if isLoaded == false then
-					notLoadedCount = notLoadedCount + 1
-				end
-			end
-
-			output_ESP.EditLabel(1, "Players not loaded in: " .. notLoadedCount)
-		end
-	end
-
-	output_Camera.EditLabel(1, "Camera Position: " .. camPosString)
-
-	output_Character.EditLabel(1, "Character Position: " .. charPosString)
-	output_Character.EditLabel(2, "Character Rotation: " .. charRotationString)
-	output_Character.EditLabel(3, "Character Velocity: " .. charVelocityString)
-	output_Character.EditLabel(4, "Walk Speed: N/A")
-	output_Character.EditLabel(5, "Jump Power: N/A")
-	output_Character.EditLabel(6, "Health: N/A")
-
-	output_Server.EditLabel(1, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
-	output_Server.EditLabel(2, "Job ID: " .. game.JobId)
-
-	if humanoid then
-		output_Character.EditLabel(4, "Walk Speed: " .. humanoid.WalkSpeed)
-		output_Character.EditLabel(5, "Jump Power: " .. humanoid.JumpPower)
-		output_Character.EditLabel(6, "Health: " .. math.floor(humanoid.Health + 0.5) .. "/" .. math.floor(humanoid.MaxHealth + 0.5))
+	if not success then
+		print("-------------------")
+		print(err)
 	end
 end
 
