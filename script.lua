@@ -1463,6 +1463,10 @@ local function Process(deltaTime)
 		-- Fix Camera
 		if button_Fix_Camera.GetPressCount() > 0 then
 			camera.CameraType = Enum.CameraType.Custom
+			
+			if humanoid then
+				camera.CameraSubject = humanoid
+			end
 		end
 		
 		-- Load World At Camera
