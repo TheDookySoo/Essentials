@@ -1078,92 +1078,115 @@ local function CreateESPForPlayer(plr)
 		local function Process()
 			if SCRIPT_ENABLED == false then
 				stopLoop = true
-			else
-				local shouldHide = false
+				return
+			end
+				
+			-- If tag is missing then stop
+			if tag.Parent ~= espTagFolder then
+				stopLoop = true
+			end
 
-				do
-					local keyword = input_Isolate_Player.GetInputText()
+			-- Different character so stop
+			if character ~= currentCharacter then
+				stopLoop = true
+			end
+			
+			if switch_Show_Tags.On() == false then
+				tag.Visible = false
+				return
+			end
+			
+			-- Check if we can continue
+			local tagPosition, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
 
-					if keyword ~= "" then
-						if switch_Use_Display_Name.On() then
-							if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
-								shouldHide = true
-							end
-						else
-							if not string.find(string.lower(plr.Name), string.lower(keyword)) then
-								shouldHide = true
-							end
-						end
-					end
-				end
-
-				if shouldHide then
+			do
+				-- Tag is not visible because camera is not facing player
+				if not onScreen then
 					tag.Visible = false
 					return
 				end
-
-				if tag.Parent ~= espTagFolder then
-					stopLoop = true
-				end
-
-				if plr.Character ~= currentCharacter then
-					stopLoop = true
-				end
-
-				-- Tag
-				local tagText = ""
-
-				if switch_Use_Display_Name.On() then
-					tagText = "[" .. plr.DisplayName .. "]"
-				else
-					tagText = "[" .. plr.Name .. "]"
-				end
-
-				tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
-
-				if switch_Bold_Tags.On() then
-					tag.TextStrokeTransparency = 0
-
-					local color = tag.TextColor3
-					local v = (color.R + color.G + color.B) / 3
-
-					if v > 0.5 then
-						tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
+				
+				-- Isolate specific player
+				local keyword = input_Isolate_Player.GetInputText()
+				
+				if keyword ~= "" then
+					if switch_Use_Display_Name.On() then
+						if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
+							tag.Visible = false
+							return
+						end
 					else
-						tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
+						if not string.find(string.lower(plr.Name), string.lower(keyword)) then
+							tag.Visible = false
+							return
+						end
 					end
-				else
-					tag.TextStrokeTransparency = 0.9
-					tag.TextStrokeColor3 = Color3.new(0, 0, 0)
-				end
-
-				item.Visible = switch_Label_Item_In_Hand.On()
-
-				if plr.Character:FindFirstChild("Humanoid") then
-					tagText = tagText .. "[" .. math.floor(plr.Character.Humanoid.Health + 0.5) .. "/" .. math.floor(plr.Character.Humanoid.MaxHealth + 0.5) .. "]"
-
-					if switch_Show_Distance.On() then
-						tagText = tagText .. "[" .. math.floor((workspace.CurrentCamera.CFrame.Position - plr.Character.HumanoidRootPart.Position).Magnitude + 0.5) .. " studs]"
-					end
-				end
-
-				tag.Text = tagText
-
-
-				local pos, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
-				local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
-
-				if onScreen then
-					tag.Visible = true
-					tag.Position = UDim2.new(0, pos.X, 0, pos.Y - offset)
-				else
-					tag.Visible = false
 				end
 			end
+			
+			-- Find player humanoid
+			local character = plr.Character
+			local humanoid = nil
+			
+			if character then
+				humanoid = character:FindFirstChild("Humanoid")
+			end
+
+			-- Tag
+			local tagText = ""
+
+			if switch_Use_Display_Name.On() then
+				tagText = "[" .. plr.DisplayName .. "]"
+			else
+				tagText = "[" .. plr.Name .. "]"
+			end
+
+			if switch_Bold_Tags.On() then
+				tag.TextStrokeTransparency = 0
+
+				local color = tag.TextColor3
+				local v = (color.R + color.G + color.B) / 3
+
+				if v > 0.5 then
+					tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
+				else
+					tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
+				end
+			else
+				tag.TextStrokeTransparency = 0.9
+				tag.TextStrokeColor3 = Color3.new(0, 0, 0)
+			end
+			
+			if humanoid then
+				local health = math.floor(humanoid.Health + 0.5)
+				local maxHealth = math.floor(humanoid.MaxHealth + 0.5)
+				
+				tagText = tagText .. "[" .. health .. "/" .. maxHealth .. "]"
+			end
+			
+			if character then
+				local root = character:FindFirstChild("HumanoidRootPart")
+				
+				if switch_Show_Distance.On() and root then
+					local distance = (workspace.CurrentCamera.CFrame.Position - root.Position).Magnitude
+					
+					tagText = tagText .. "[" .. math.floor(distance + 0.5) .. " studs]"
+				end
+			end
+			
+			
+			item.Visible = switch_Label_Item_In_Hand.On()
+			
+			tag.Text = tagText
+			tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+
+			local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
+			tag.Visible = true
+			tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - offset)
 		end
 		
 		local function pcallProcess()
-			local success = pcall(Process)
+			local success, err = pcall(Process)
 			
 			if not success then
 				stopLoop = true
@@ -1174,7 +1197,7 @@ local function CreateESPForPlayer(plr)
 		RUN_SERVICE:BindToRenderStep(uniqueId, Enum.RenderPriority.Last.Value, pcallProcess)
 		repeat RUN_SERVICE.RenderStepped:Wait() until stopLoop
 		RUN_SERVICE:UnbindFromRenderStep(uniqueId)
-
+		
 		tag:Destroy()
 		espList[plr.Name] = false
 		
