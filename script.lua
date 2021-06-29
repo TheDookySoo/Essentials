@@ -1022,27 +1022,11 @@ local function CreateESPForPlayer(plr)
 			box.ZIndex = 10
 			box.AlwaysOnTop = true
 			
-			local function CheckTransparency()
-				if part.Name ~= "HumanoidRootPart" then
-					if part.Transparency > 0.99 then -- 0.99 is the threshold (it's basically invisible)
-						box.Color = BrickColor.new(1, 0, 0)
-					else
-						box.Color = BrickColor.new(1, 1, 1)
-					end
-				end
-			end
-
 			local c1 = part.AncestryChanged:Connect(function()
 				if not box:IsDescendantOf(workspace) then
 					box:Destroy()
 				end
 			end)
-			
-			local c2 = part:GetPropertyChangedSignal("Transparency"):Connect(function()
-				CheckTransparency()
-			end)
-			
-			CheckTransparency()
 
 			table.insert(boxes, box)
 			table.insert(eventConnections, c1)
