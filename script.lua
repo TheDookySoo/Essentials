@@ -1033,8 +1033,8 @@ local function CreateESPForPlayer(plr)
 			end
 
 			local c1 = part.AncestryChanged:Connect(function()
-				if not box:IsAncestorOf(workspace) then
-					box:Destroy()
+				if not box:IsDescendantOf(workspace) then
+					--box:Destroy()
 				end
 			end)
 			
@@ -1090,9 +1090,28 @@ local function CreateESPForPlayer(plr)
 		table.insert(ALL_CONNECTIONS, addedConnection)
 		table.insert(ALL_CONNECTIONS, removedConnection)
 		
+		-- Find player humanoid and character
+		local humanoid = nil
+
+		if character then
+			humanoid = character:FindFirstChild("Humanoid")
+		end
+		
 		-- Loop
 		local stopLoop = false
 		local currentCharacter = character
+		
+		if humanoid then
+			local c1 = humanoid.Died:Connect(function()
+				for _, v in pairs(boxes) do
+					v.Color = BrickColor.new(0.2, 0.3, 1)
+					v.Transparency = 0.5
+				end
+			end)
+			
+			table.insert(eventConnections, c1)
+			table.insert(ALL_CONNECTIONS, c1)
+		end
 
 		local function Process()
 			if SCRIPT_ENABLED == false then
@@ -1142,14 +1161,6 @@ local function CreateESPForPlayer(plr)
 						end
 					end
 				end
-			end
-			
-			-- Find player humanoid
-			local character = plr.Character
-			local humanoid = nil
-			
-			if character then
-				humanoid = character:FindFirstChild("Humanoid")
 			end
 
 			-- Tag
