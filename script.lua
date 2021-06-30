@@ -1022,11 +1022,27 @@ local function CreateESPForPlayer(plr)
 			box.ZIndex = 10
 			box.AlwaysOnTop = true
 			
+			local function CheckTransparency()
+				if part.Name ~= "HumanoidRootPart" then
+					if part.Transparency > 0.99 then -- 0.99 is the threshold (it's basically invisible)
+						box.Color = BrickColor.new(1, 0, 0)
+					else
+						box.Color = BrickColor.new(1, 1, 1)
+					end
+				end
+			end
+
 			local c1 = part.AncestryChanged:Connect(function()
 				if not box:IsDescendantOf(workspace) then
 					box:Destroy()
 				end
 			end)
+			
+			local c2 = part:GetPropertyChangedSignal("Transparency"):Connect(function()
+				CheckTransparency()
+			end)
+			
+			CheckTransparency()
 
 			table.insert(boxes, box)
 			table.insert(eventConnections, c1)
@@ -1600,7 +1616,7 @@ local function Process(deltaTime)
 		if humanoid then
 			output_Character.EditLabel(4, "Walk Speed: " .. humanoid.WalkSpeed)
 			output_Character.EditLabel(5, "Jump Power: " .. humanoid.JumpPower)
-			output_Character.EditLabel(6, "Health: " .. math.floor(humanoid.Health + 0.5) .. "/" .. math.floor(humanoid.MaxHealth + 0.5))
+			output_Character.EditLabel(6, "Health: " .. RoundNumber(humanoid.Health, 3) .. "/" .. RoundNumber(humanoid.MaxHealth, 3))
 		end
 	end)
 	
