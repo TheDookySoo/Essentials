@@ -917,6 +917,8 @@ local lastTickCheckLoadedPlayers = tick()
 local freecamPosition = Vector3.new(0, 0, 0)
 local freecamRotation = Vector2.new(0, 0)
 
+local guiVerticalInset = game:GetService("GuiService"):GetGuiInset().Y
+
 -- Freecam scroll
 local inputChangedConnection = game:GetService("UserInputService").InputChanged:Connect(function(input, gameProcessed)
 	if SCRIPT_ENABLED then
@@ -966,9 +968,11 @@ local function CreateESPForPlayer(plr)
 
 		-- Tag
 		local head = character:FindFirstChild("Head")
+		local isActuallyHead = true
 
 		if head == nil then
 			head = character.PrimaryPart
+			isActuallyHead = false
 			
 			if head == nil then
 				espList[plr.Name] = false
@@ -1117,7 +1121,7 @@ local function CreateESPForPlayer(plr)
 			end
 			
 			-- Check if we can continue
-			local tagPosition, onScreen = workspace.CurrentCamera:WorldToScreenPoint(head.Position)
+			local tagPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position + Vector3.new(0, 1.4, 0))
 
 			do
 				-- Tag is not visible because camera is not facing player
@@ -1149,6 +1153,16 @@ local function CreateESPForPlayer(plr)
 
 			if character then
 				humanoid = character:FindFirstChild("Humanoid")
+			end
+			
+			-- Switch to head if possible
+			if isActuallyHead == false then
+				local h = character:FindFirstChild("Head")
+				
+				if h then
+					head = h
+					isActuallyHead = true
+				end
 			end
 
 			-- Tag
@@ -1200,8 +1214,7 @@ local function CreateESPForPlayer(plr)
 			tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
 			tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 
-			local offset = 1500 / (head.Position - workspace.CurrentCamera.CFrame.Position).Magnitude
-			tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - offset)
+			tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - guiVerticalInset)
 			tag.Visible = switch_Show_Tags.On()
 		end
 		
