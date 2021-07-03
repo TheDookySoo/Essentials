@@ -1090,13 +1090,6 @@ local function CreateESPForPlayer(plr)
 		table.insert(ALL_CONNECTIONS, addedConnection)
 		table.insert(ALL_CONNECTIONS, removedConnection)
 		
-		-- Find player humanoid and character
-		local humanoid = nil
-
-		if character then
-			humanoid = character:FindFirstChild("Humanoid")
-		end
-		
 		-- Loop
 		local stopLoop = false
 		local currentCharacter = character
@@ -1149,6 +1142,13 @@ local function CreateESPForPlayer(plr)
 						end
 					end
 				end
+			end
+			
+			-- Find player humanoid and character
+			local humanoid = nil
+
+			if character then
+				humanoid = character:FindFirstChild("Humanoid")
 			end
 
 			-- Tag
