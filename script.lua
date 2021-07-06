@@ -870,9 +870,16 @@ local switch_Aimbot_Team_Check = CreateSwitch(folder_Aimbot, "Team Check", false
 local switch_Aimbot_Wall_Check = CreateSwitch(folder_Aimbot, "Wall Check", false)
 local keybind_Aimbot_Engage = CreateKeybind(folder_Aimbot, "Engage Aimbot", Enum.KeyCode.V)
 
+-- Character
+local folder_Character = CreateFolder(elementsContainer, "Character")
+local switch_Noclip_Enabled = CreateSwitch(folder_Character, "Noclip Enabled", false)
+CreatePadding(folder_Character, 2)
+local input_Slope_Angle = CreateInput(folder_Character, "Slope Angle", 89)
+local button_Set_Slope_Angle = CreateButton(folder_Character, "Set Slope Angle", "Set")
+local switch_Force_Slope_Angle = CreateSwitch(folder_Character, "Force Slope Angle", false)
+
 -- Misc
 local folder_Misc = CreateFolder(elementsContainer, "Misc")
-local switch_Noclip_Enabled = CreateSwitch(folder_Misc, "Noclip Enabled", false)
 local button_Sit = CreateButton(folder_Misc, "Sit", "Sit")
 local button_Fix_Camera = CreateButton(folder_Misc, "Fix Camera", "Fix")
 local button_Load_World_At_Camera = CreateButton(folder_Misc, "Load World At Camera", "Load")
@@ -880,8 +887,8 @@ local button_Load_World_At_Camera = CreateButton(folder_Misc, "Load World At Cam
 -- Information
 local folder_Information = CreateFolder(elementsContainer, "Information")
 local output_ESP = CreateOutput(folder_Information, 2)
-local output_Camera = CreateOutput(folder_Information, 1)
-local output_Character = CreateOutput(folder_Information, 6)
+local output_Camera = CreateOutput(folder_Information, 3)
+local output_Character = CreateOutput(folder_Information, 7)
 local output_Server = CreateOutput(folder_Information, 2)
 
 
@@ -1046,13 +1053,19 @@ local function CreateESPForPlayer(plr)
 				CheckTransparency()
 			end)
 			
+			local c3 = part:GetPropertyChangedSignal("Size"):Connect(function()
+				box.Size = part.Size
+			end)
+			
 			CheckTransparency()
 
 			table.insert(boxes, box)
 			table.insert(eventConnections, c1)
 			table.insert(eventConnections, c2)
+			table.insert(eventConnections, c3)
 			table.insert(ALL_CONNECTIONS, c1)
 			table.insert(ALL_CONNECTIONS, c2)
+			table.insert(ALL_CONNECTIONS, c3)
 		end
 
 		local addedConnection = character.ChildAdded:Connect(function(c)
@@ -1563,8 +1576,30 @@ local function Process(deltaTime)
 			aimbotTarget = nil
 		end
 		
+		-- Slope Angle
+		if humanoid then
+			if switch_Force_Slope_Angle.On() then
+				humanoid.MaxSlopeAngle = input_Slope_Angle.GetInputTextAsNumber()
+			end
+			
+			if button_Set_Slope_Angle.GetPressCount() > 0 then
+				humanoid.MaxSlopeAngle = input_Slope_Angle.GetInputTextAsNumber()
+			end
+		end
+		
 		-- Information
 		local camPosString = RoundNumber(camera.CFrame.Position.X, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Y, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Z, 2)
+		local camRotString = nil
+		
+		do
+			local x, y, z = camera.CFrame:ToOrientation()
+			x = math.deg(x)
+			y = math.deg(y)
+			z = math.deg(z)
+			
+			camRotString = RoundNumber(x, 2) .. ", " .. RoundNumber(y, 2) .. ", " .. RoundNumber(z, 2)
+		end
+		
 		local charPosString = "N/A"
 		local charRotationString = "N/A"
 		local charVelocityString = "N/A"
@@ -1575,7 +1610,6 @@ local function Process(deltaTime)
 
 			if humanoidRootPart then
 				local x, y, z = humanoidRootPart.Orientation.X, humanoidRootPart.Orientation.Y, humanoidRootPart.Orientation.Z
-
 				charRotationString = RoundNumber(x, 2) .. ", " .. RoundNumber(y, 2) .. ", " .. RoundNumber(z, 2)
 			end
 
@@ -1615,7 +1649,9 @@ local function Process(deltaTime)
 		end
 
 		output_Camera.EditLabel(1, "Camera Position: " .. camPosString)
-
+		output_Camera.EditLabel(2, "Camera Position: " .. camRotString)
+		output_Camera.EditLabel(3, "FOV: " .. camera.FieldOfView)
+		
 		output_Character.EditLabel(1, "Character Position: " .. charPosString)
 		output_Character.EditLabel(2, "Character Rotation: " .. charRotationString)
 		output_Character.EditLabel(3, "Character Velocity: " .. charVelocityString)
@@ -1629,19 +1665,20 @@ local function Process(deltaTime)
 		if humanoid then
 			output_Character.EditLabel(4, "Walk Speed: " .. humanoid.WalkSpeed)
 			output_Character.EditLabel(5, "Jump Power: " .. humanoid.JumpPower)
-			output_Character.EditLabel(6, "Health: " .. RoundNumber(humanoid.Health, 3) .. "/" .. RoundNumber(humanoid.MaxHealth, 3))
+			output_Character.EditLabel(6, "Max Slope Angle: " .. humanoid.MaxSlopeAngle)
+			output_Character.EditLabel(7, "Health: " .. RoundNumber(humanoid.Health, 3) .. "/" .. RoundNumber(humanoid.MaxHealth, 3))
 		end
 	end)
 	
 	if not success then
-		print("-------------------")
-		print(err)
+		--print("-------------------")
+		--print(err)
 	end
 end
 
 -- Bind process function to render step. Priority set to last so we can have control over everything (maybe)
 local uniqueId = game:GetService("HttpService"):GenerateGUID(false)
-RUN_SERVICE:BindToRenderStep(uniqueId, Enum.RenderPriority.Last.Value, Process)
+RUN_SERVICE:BindToRenderStep(uniqueId, Enum.RenderPriority.Camera.Value, Process)
 
 -- Wait until window is closed
 repeat RUN_SERVICE.RenderStepped:Wait() until window.IsActive() == false
@@ -1661,4 +1698,4 @@ if switch_Freecam_Enabled.On() then
 	game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Pass end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_Freecam_Down.GetKeyCode(), keybind_Freecam_Up.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
 end
 
-script.Parent = nil -- Connections are destroyed if parent set to nil
+-- script.Parent = nil -- Connections are destroyed if parent set to nil
