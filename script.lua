@@ -876,6 +876,7 @@ local keybind_Aimbot_Engage = CreateKeybind(folder_Aimbot, "Engage Aimbot", Enum
 -- Character
 local folder_Character = CreateFolder(elementsContainer, "Character")
 local switch_Noclip_Enabled = CreateSwitch(folder_Character, "Noclip Enabled", false)
+local button_Sit = CreateButton(folder_Character, "Sit", "Sit")
 CreatePadding(folder_Character, 2)
 local input_Slope_Angle = CreateInput(folder_Character, "Slope Angle", 89)
 local button_Set_Slope_Angle = CreateButton(folder_Character, "Set Slope Angle", "Set")
@@ -883,7 +884,6 @@ local switch_Force_Slope_Angle = CreateSwitch(folder_Character, "Force Slope Ang
 
 -- Misc
 local folder_Misc = CreateFolder(elementsContainer, "Misc")
-local button_Sit = CreateButton(folder_Misc, "Sit", "Sit")
 local button_Fix_Camera = CreateButton(folder_Misc, "Fix Camera", "Fix")
 local button_Load_World_At_Camera = CreateButton(folder_Misc, "Load World At Camera", "Load")
 
