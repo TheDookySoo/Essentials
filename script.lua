@@ -532,7 +532,7 @@ local function CreateOutput(parent, labelCount)
 	local labels = {}
 
 	for i = 1, labelCount do
-		local label = Instance.new("TextLabel", background)
+		local label = Instance.new("TextBox", background)
 		label.Name = ""
 		label.Size = UDim2.new(1, -THEME.Output_Label_Left_Text_Padding, 0, THEME.Output_Label_Height)
 		label.Position = UDim2.new(1, 0, 0, THEME.Output_Label_Height * (i - 1))
@@ -542,6 +542,9 @@ local function CreateOutput(parent, labelCount)
 		label.TextSize = THEME.Output_Text_Size
 		label.TextColor3 = THEME.Text_Color
 		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.Selectable = true
+		label.TextEditable = false
+		label.ClearTextOnFocus = false
 		label.Text = ""
 
 		labels[i] = label
