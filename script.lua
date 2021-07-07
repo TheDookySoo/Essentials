@@ -1210,56 +1210,60 @@ local function CreateESPForPlayer(plr)
 			end
 
 			-- Tag
-			local tagText = ""
+			if switch_Show_Tags.On() then
+				local tagText = ""
 
-			if switch_Use_Display_Name.On() then
-				tagText = "[" .. plr.DisplayName .. "]"
-			else
-				tagText = "[" .. plr.Name .. "]"
-			end
-
-			if switch_Bold_Tags.On() then
-				tag.TextStrokeTransparency = input_Tag_Transparency.GetInputTextAsNumber()
-
-				local color = tag.TextColor3
-				local v = (color.R + color.G + color.B) / 3
-
-				if v > 0.5 then
-					tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
+				if switch_Use_Display_Name.On() then
+					tagText = "[" .. plr.DisplayName .. "]"
 				else
-					tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
+					tagText = "[" .. plr.Name .. "]"
 				end
-			else
-				tag.TextStrokeTransparency = 0.9
-				tag.TextStrokeColor3 = Color3.new(0, 0, 0)
-			end
-			
-			if humanoid then
-				local health = math.floor(humanoid.Health + 0.5)
-				local maxHealth = math.floor(humanoid.MaxHealth + 0.5)
-				
-				tagText = tagText .. "[" .. health .. "/" .. maxHealth .. "]"
-			end
-			
-			if character then
-				local root = character:FindFirstChild("HumanoidRootPart")
-				
-				if switch_Show_Distance.On() and root then
-					local distance = (workspace.CurrentCamera.CFrame.Position - root.Position).Magnitude
-					
-					tagText = tagText .. "[" .. math.floor(distance + 0.5) .. " studs]"
-				end
-			end
-			
-			
-			item.Visible = switch_Label_Item_In_Hand.On()
-			
-			tag.Text = tagText
-			tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
-			tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 
-			tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - guiVerticalInset)
-			tag.Visible = switch_Show_Tags.On()
+				if switch_Bold_Tags.On() then
+					tag.TextStrokeTransparency = input_Tag_Transparency.GetInputTextAsNumber()
+
+					local color = tag.TextColor3
+					local v = (color.R + color.G + color.B) / 3
+
+					if v > 0.5 then
+						tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
+					else
+						tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
+					end
+				else
+					tag.TextStrokeTransparency = 0.9
+					tag.TextStrokeColor3 = Color3.new(0, 0, 0)
+				end
+				
+				if humanoid then
+					local health = math.floor(humanoid.Health + 0.5)
+					local maxHealth = math.floor(humanoid.MaxHealth + 0.5)
+					
+					tagText = tagText .. "[" .. health .. "/" .. maxHealth .. "]"
+				end
+				
+				if character then
+					local root = character:FindFirstChild("HumanoidRootPart")
+					
+					if switch_Show_Distance.On() and root then
+						local distance = (workspace.CurrentCamera.CFrame.Position - root.Position).Magnitude
+						
+						tagText = tagText .. "[" .. math.floor(distance + 0.5) .. " studs]"
+					end
+				end
+				
+				
+				item.Visible = switch_Label_Item_In_Hand.On()
+				
+				tag.Text = tagText
+				tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+				tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
+
+				tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - guiVerticalInset)
+				tag.Visible = true
+			else
+				tag.Visible = false
+			end
 		end
 		
 		local function pcallProcess()
