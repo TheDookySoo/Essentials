@@ -871,6 +871,7 @@ local folder_Aimbot = CreateFolder(elementsContainer, "Aimbot")
 local switch_Aimbot_Enabled = CreateSwitch(folder_Aimbot, "Aimbot Enabled", false)
 local switch_Aimbot_Team_Check = CreateSwitch(folder_Aimbot, "Team Check", false)
 local switch_Aimbot_Wall_Check = CreateSwitch(folder_Aimbot, "Wall Check", false)
+local switch_Show_Crosshair = CreateSwitch(folder_Aimbot, "Show Crosshair", false)
 local keybind_Aimbot_Engage = CreateKeybind(folder_Aimbot, "Engage Aimbot", Enum.KeyCode.V)
 
 -- Character
@@ -910,6 +911,35 @@ cursor.Size = UDim2.new(0, 2, 0, 2)
 cursor.AnchorPoint = Vector2.new(0.5, 0.5)
 cursor.BackgroundColor3 = Color3.new(1, 1, 1)
 
+-- Crosshair
+local guiVerticalInset = game:GetService("GuiService"):GetGuiInset().Y
+
+local crosshairFrame = Instance.new("Frame", applicationGui)
+crosshairFrame.Name = ""
+crosshairFrame.Size = UDim2.new(0, 15, 0, 15)
+crosshairFrame.BackgroundTransparency = 1
+crosshairFrame.Position = UDim2.new(0.5, 0, 0.5, -guiVerticalInset / 2)
+crosshairFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+crosshairFrame.Visible = false
+
+local crosshairVertical = Instance.new("Frame", crosshairFrame)
+crosshairVertical.Name = ""
+crosshairVertical.Size = UDim2.new(0, 1, 1, 0)
+crosshairVertical.Position = UDim2.new(0.5, 0, 0.5, 0)
+crosshairVertical.AnchorPoint = Vector2.new(0.5, 0.5)
+crosshairVertical.BorderSizePixel = 0
+crosshairVertical.BackgroundColor3 = Color3.new(1, 1, 1)
+crosshairVertical.Selectable = false
+
+local crosshairHorizontal = Instance.new("Frame", crosshairFrame)
+crosshairHorizontal.Name = ""
+crosshairHorizontal.Size = UDim2.new(1, 0, 0, 1)
+crosshairHorizontal.Position = UDim2.new(0.5, 0, 0.5, 0)
+crosshairHorizontal.AnchorPoint = Vector2.new(0.5, 0.5)
+crosshairHorizontal.BorderSizePixel = 0
+crosshairHorizontal.BackgroundColor3 = Color3.new(1, 1, 1)
+crosshairHorizontal.Selectable = false
+
 -- Functions
 local function MatchPlayerWithString(str)
 	for _, v in pairs(game.Players:GetPlayers()) do
@@ -926,8 +956,6 @@ local lastTickCheckLoadedPlayers = tick()
 
 local freecamPosition = Vector3.new(0, 0, 0)
 local freecamRotation = Vector2.new(0, 0)
-
-local guiVerticalInset = game:GetService("GuiService"):GetGuiInset().Y
 
 -- Freecam scroll
 local inputChangedConnection = game:GetService("UserInputService").InputChanged:Connect(function(input, gameProcessed)
@@ -1577,6 +1605,11 @@ local function Process(deltaTime)
 			end
 		else
 			aimbotTarget = nil
+		end
+		
+		-- Crosshair
+		if switch_Show_Crosshair.On() then
+			crosshairFrame.Visible = true
 		end
 		
 		-- Slope Angle
