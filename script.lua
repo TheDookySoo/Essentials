@@ -930,6 +930,7 @@ crosshairVertical.AnchorPoint = Vector2.new(0.5, 0.5)
 crosshairVertical.BorderSizePixel = 0
 crosshairVertical.BackgroundColor3 = Color3.new(1, 1, 1)
 crosshairVertical.Selectable = false
+crosshairVertical.ZIndex = 10
 
 local crosshairHorizontal = Instance.new("Frame", crosshairFrame)
 crosshairHorizontal.Name = ""
@@ -939,6 +940,7 @@ crosshairHorizontal.AnchorPoint = Vector2.new(0.5, 0.5)
 crosshairHorizontal.BorderSizePixel = 0
 crosshairHorizontal.BackgroundColor3 = Color3.new(1, 1, 1)
 crosshairHorizontal.Selectable = false
+crosshairHorizontal.ZIndex = 10
 
 -- Functions
 local function MatchPlayerWithString(str)
@@ -1614,6 +1616,8 @@ local function Process(deltaTime)
 		-- Crosshair
 		if switch_Show_Crosshair.On() then
 			crosshairFrame.Visible = true
+		else
+			crosshairFrame.Visible = false
 		end
 		
 		-- Slope Angle
@@ -1689,7 +1693,7 @@ local function Process(deltaTime)
 		end
 
 		output_Camera.EditLabel(1, "Camera Position: " .. camPosString)
-		output_Camera.EditLabel(2, "Camera Position: " .. camRotString)
+		output_Camera.EditLabel(2, "Camera Rotation: " .. camRotString)
 		output_Camera.EditLabel(3, "FOV: " .. camera.FieldOfView)
 		
 		output_Character.EditLabel(1, "Character Position: " .. charPosString)
@@ -1737,5 +1741,3 @@ if switch_Freecam_Enabled.On() then
 	workspace.CurrentCamera.CameraType = prevCameraType
 	game:GetService("ContextActionService"):BindActionAtPriority("WASDUpDownKeys", function() return Enum.ContextActionResult.Pass end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, keybind_Freecam_Down.GetKeyCode(), keybind_Freecam_Up.GetKeyCode(), Enum.KeyCode.Space, Enum.KeyCode.LeftShift)
 end
-
--- script.Parent = nil -- Connections are destroyed if parent set to nil
