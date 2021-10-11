@@ -416,10 +416,12 @@ local function CreateInput(parent, title, default)
 		return inputTextBox.Text
 	end
 
-	function input.GetInputTextAsNumber()
+	function input.GetInputTextAsNumber(default)
+		local d = default == nil and 0 or default
+		
 		local n = tonumber(inputTextBox.Text)
 
-		return n == nil and 0 or n
+		return n == nil and d or n
 	end
 
 	function input.InputChanged()
@@ -848,6 +850,10 @@ local input_Teleport_To_Player_Target = CreateInput(folder_Teleport, "Player Nam
 CreatePadding(folder_Teleport, 4)
 local button_Teleport_Forward = CreateButton(folder_Teleport, "Teleport Forward", "Teleport")
 local input_Teleport_Forward_Studs = CreateInput(folder_Teleport, "Teleport Forward Studs", 5)
+CreatePadding(folder_Teleport, 4)
+local switch_Teleport_Forward_Double_Tap = CreateSwitch(folder_Teleport, "TP Forward Double Tap", false)
+local keybind_Teleport_Forward_Double_Tap = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.E)
+local input_Teleport_Forward_Double_Tap_Time_Range = CreateInput(folder_Teleport, "Accepted Time Range [s]", "0.2")
 
 -- ESP Settings
 local folder_ESP_Settings = CreateFolder(elementsContainer, "ESP Settings")
@@ -1324,6 +1330,9 @@ end)
 
 table.insert(ALL_CONNECTIONS, plrAdded)
 
+-- Teleport forward stuff
+local teleportForwardKeybindLastPressed = 0
+
 -- Process is called every frame
 local function Process(deltaTime)
 	local success, err = pcall(function()
@@ -1719,6 +1728,36 @@ local function Process(deltaTime)
 		--print(err)
 	end
 end
+
+-- Input began
+
+local inputConnection = INPUT_SERVICE.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed == false then
+		if input.KeyCode == keybind_Teleport_Forward_Double_Tap.GetKeyCode() then
+			if switch_Teleport_Forward_Double_Tap.On() == false then
+				return
+			end
+			
+			if tick() - teleportForwardKeybindLastPressed < input_Teleport_Forward_Double_Tap_Time_Range.GetInputTextAsNumber(0.5) then
+				local character = game.Players.LocalPlayer.Character
+				
+				if character == nil then
+					return
+				end
+				
+				local root = character:FindFirstChild("HumanoidRootPart")
+
+				if root then
+					character:SetPrimaryPartCFrame(character:GetPrimaryPartCFrame() * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber()))
+				end
+			end
+			
+			teleportForwardKeybindLastPressed = tick()
+		end
+	end
+end)
+
+table.insert(ALL_CONNECTIONS, inputConnection)
 
 -- Bind process function to render step. Priority set to last so we can have control over everything (maybe)
 local uniqueId = game:GetService("HttpService"):GenerateGUID(false)
