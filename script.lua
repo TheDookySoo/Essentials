@@ -1662,7 +1662,15 @@ local function Process(deltaTime)
 		local charVelocityRealString = "N/A"
 
 		if character then
-			local primary = character.PrimaryPart
+			local primary = character:FindFirstChild("HumanoidRootPart")
+			
+			if not primary then
+				primary = character.PrimaryPart
+				
+				if not primary then
+					primary = character:FindFirstChildOfClass("BasePart")
+				end
+			end
 			
 			if primary then
 				if primary:IsA("BasePart") then
@@ -1692,7 +1700,7 @@ local function Process(deltaTime)
 					lastPrimaryPartPosition = primary.Position
 					
 					-- String
-					charVelocityRealString = RoundNumber(realVel.Magnitude, 2) .. " sps (avg. " .. RoundNumber(average, 2) .. ")"
+					charVelocityRealString = "avg. " .. RoundNumber(average, 2) .. " sps (now " .. RoundNumber(realVel.Magnitude, 2) .. ")"
 				end
 			end
 		end
