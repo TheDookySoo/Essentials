@@ -898,7 +898,7 @@ local button_Load_World_At_Camera = CreateButton(folder_Misc, "Load World At Cam
 local folder_Information = CreateFolder(elementsContainer, "Information")
 local output_ESP = CreateOutput(folder_Information, 2)
 local output_Camera = CreateOutput(folder_Information, 3)
-local output_Character = CreateOutput(folder_Information, 7)
+local output_Character = CreateOutput(folder_Information, 8)
 local output_Server = CreateOutput(folder_Information, 2)
 
 
@@ -964,6 +964,12 @@ local lastTickCheckLoadedPlayers = tick()
 
 local freecamPosition = Vector3.new(0, 0, 0)
 local freecamRotation = Vector2.new(0, 0)
+
+local lastPrimaryPartPosition = Vector3.new(0, 0, 0)
+local characterRealVelocityHistoryLength = 30
+local characterRealVelocityHistory = table.create(characterRealVelocityHistoryLength, 0)
+
+local teleportForwardKeybindLastPressed = 0
 
 -- Freecam scroll
 local inputChangedConnection = game:GetService("UserInputService").InputChanged:Connect(function(input, gameProcessed)
@@ -1330,9 +1336,6 @@ end)
 
 table.insert(ALL_CONNECTIONS, plrAdded)
 
--- Teleport forward stuff
-local teleportForwardKeybindLastPressed = 0
-
 -- Process is called every frame
 local function Process(deltaTime)
 	local success, err = pcall(function()
@@ -1655,23 +1658,41 @@ local function Process(deltaTime)
 		
 		local charPosString = "N/A"
 		local charRotationString = "N/A"
-		local charVelocityString = "N/A"
+		local charVelocityPropertyString = "N/A"
+		local charVelocityRealString = "N/A"
 
 		if character then
-			local root = character.PrimaryPart
-			local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+			local primary = character.PrimaryPart
+			
+			if primary then
+				if primary:IsA("BasePart") then
+					local rx, ry, rz = primary.Orientation.X, primary.Orientation.Y, primary.Orientation.Z
 
-			if humanoidRootPart then
-				local x, y, z = humanoidRootPart.Orientation.X, humanoidRootPart.Orientation.Y, humanoidRootPart.Orientation.Z
-				charRotationString = RoundNumber(x, 2) .. ", " .. RoundNumber(y, 2) .. ", " .. RoundNumber(z, 2)
-			end
-
-			if root then
-				if root:IsA("BasePart") then
-					local x, y, z = root.Orientation.X, root.Orientation.Y, root.Orientation.Z
-
-					charPosString = RoundNumber(root.Position.X, 2) .. ", " .. RoundNumber(root.Position.Y, 2) .. ", " .. RoundNumber(root.Position.Z, 2)
-					charVelocityString = RoundNumber(root.Velocity.Magnitude, 2) .. " sps"
+					charPosString = RoundNumber(primary.Position.X, 2) .. ", " .. RoundNumber(primary.Position.Y, 2) .. ", " .. RoundNumber(primary.Position.Z, 2)
+					charRotationString = RoundNumber(rx, 2) .. ", " .. RoundNumber(ry, 2) .. ", " .. RoundNumber(rz, 2)
+					charVelocityPropertyString = RoundNumber(primary.Velocity.Magnitude, 2) .. " sps"
+					
+					-- Real
+					local realVel = (primary.Position - lastPrimaryPartPosition) / deltaTime
+					local average = 0
+					
+					local length = characterRealVelocityHistoryLength
+					
+					-- Push new value
+					table.insert(characterRealVelocityHistory, 1, realVel.Magnitude)
+					table.remove(characterRealVelocityHistory, #characterRealVelocityHistory)
+					
+					-- Find average
+					for i = 1, length do
+						average = average + characterRealVelocityHistory[i]
+					end
+					
+					average = average / length
+					
+					lastPrimaryPartPosition = primary.Position
+					
+					-- String
+					charVelocityRealString = RoundNumber(realVel.Magnitude, 2) .. " sps (avg. " .. RoundNumber(average, 2) .. ")"
 				end
 			end
 		end
@@ -1707,19 +1728,27 @@ local function Process(deltaTime)
 		
 		output_Character.EditLabel(1, "Character Position: " .. charPosString)
 		output_Character.EditLabel(2, "Character Rotation: " .. charRotationString)
-		output_Character.EditLabel(3, "Character Velocity: " .. charVelocityString)
-		output_Character.EditLabel(4, "Walk Speed: N/A")
-		output_Character.EditLabel(5, "Jump Power: N/A")
-		output_Character.EditLabel(6, "Health: N/A")
+		output_Character.EditLabel(3, "Character Velocity Property: " .. charVelocityPropertyString)
+		output_Character.EditLabel(4, "Character Velocity Real: " .. charVelocityRealString)
 
 		output_Server.EditLabel(1, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
 		output_Server.EditLabel(2, "Job ID: " .. game.JobId)
 
 		if humanoid then
-			output_Character.EditLabel(4, "Walk Speed: " .. humanoid.WalkSpeed)
-			output_Character.EditLabel(5, "Jump Power: " .. humanoid.JumpPower)
-			output_Character.EditLabel(6, "Max Slope Angle: " .. humanoid.MaxSlopeAngle)
-			output_Character.EditLabel(7, "Health: " .. RoundNumber(humanoid.Health, 3) .. "/" .. RoundNumber(humanoid.MaxHealth, 3))
+			output_Character.EditLabel(5, "Walk Speed: " .. humanoid.WalkSpeed)
+			
+			if humanoid.UseJumpPower then
+				output_Character.EditLabel(6, "Jump Power: " .. humanoid.JumpPower)
+			else
+				output_Character.EditLabel(6, "Jump Height: " .. humanoid.JumpHeight)
+			end
+			
+			output_Character.EditLabel(7, "Max Slope Angle: " .. humanoid.MaxSlopeAngle)
+			output_Character.EditLabel(8, "Health: " .. RoundNumber(humanoid.Health, 3) .. "/" .. RoundNumber(humanoid.MaxHealth, 3))
+		else
+			output_Character.EditLabel(5, "Walk Speed: N/A")
+			output_Character.EditLabel(6, "Jump Power: N/A")
+			output_Character.EditLabel(7, "Health: N/A")
 		end
 	end)
 	
