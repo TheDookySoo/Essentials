@@ -1700,7 +1700,7 @@ local function Process(deltaTime)
 					lastPrimaryPartPosition = primary.Position
 					
 					-- String
-					charVelocityRealString = "avg. " .. RoundNumber(average, 2) .. " sps (now " .. RoundNumber(realVel.Magnitude, 2) .. ")"
+					charVelocityRealString = RoundNumber(average, 2) .. " sps (now " .. RoundNumber(realVel.Magnitude, 2) .. ")"
 				end
 			end
 		end
