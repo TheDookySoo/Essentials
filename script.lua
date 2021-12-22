@@ -11,6 +11,11 @@ local TWEEN_SERVICE = game:GetService("TweenService")
 local APPLICATION_GUI_PARENT = game:GetService("RunService"):IsStudio() and LOCAL_PLAYER.PlayerGui or game.CoreGui
 local ALL_CONNECTIONS = {}
 
+local DEBUG_ERROR_COUNT = 0
+local DEBUG_MAIN_LOOP_TIME = 0
+local DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = 0
+local LAST_DEBUG_ERROR_COUNT = 0
+
 -- Application Theme (determines how the application gui will look, what font is used for text and what colors are used for things)
 local THEME = {}
 THEME.Element_Height = 19 -- The height of the containers of switch, buttons, sliders, etc.
@@ -158,13 +163,19 @@ local function CreateScrollingFrame(parent, size, position, anchorPoint, element
 	local c1 = container.ChildAdded:Connect(function(c)
 		CalculateSize()
 
-		pcall(function()
+		local success, err = pcall(function()
 			local c2 = c:GetPropertyChangedSignal("Size"):Connect(function()
 				CalculateSize()
 			end)
 
 			table.insert(ALL_CONNECTIONS, c2)
 		end)
+		
+		if not success then
+			-- Debug
+			DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+			DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+		end
 	end)
 
 	local c3 = container.ChildRemoved:Connect(function(c)
@@ -322,7 +333,7 @@ local function CreateButton(parent, title, buttonText)
 		pressCount = pressCount + 1
 
 		buttonFrame.ImageColor3 = THEME.Button_Background_Color
-		wait()
+		task.wait(1/30)
 		buttonFrame.ImageColor3 = THEME.Button_Engaged_Color
 	end)
 
@@ -564,6 +575,18 @@ local function CreateOutput(parent, labelCount)
 	function output.GetLabel(index)
 		return labels[index]
 	end
+	
+	function output.GetSingleLabelAbsoluteSize()
+		if labels[1] then
+			return labels[1].AbsoluteSize
+		else
+			return 0
+		end
+	end
+	
+	function output.GetLabelCount()
+		return labelCount
+	end
 
 	return output
 end
@@ -786,7 +809,7 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding)
 	-- Collapse
 	local function Update()
 		collapse.Rotation = isCollapsed and -180 or -90
-
+		
 		if isCollapsed then
 			frame.Size = UDim2.new(1, 0, 0, THEME.Folder_Handle_Height)
 		else
@@ -794,9 +817,17 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding)
 		end
 
 		for _, v in pairs(container:GetDescendants()) do
-			pcall(function()
-				v.Visible = not isCollapsed
+			local success, err = pcall(function()
+				if v:IsA("GuiObject") then
+					v.Visible = not isCollapsed
+				end
 			end)
+			
+			if not success then
+				-- Debug
+				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+				DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+			end
 		end
 	end
 
@@ -808,9 +839,15 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding)
 
 	local c4 = container.DescendantAdded:Connect(function(c)
 		if isCollapsed then
-			pcall(function()
+			local success, err = pcall(function()
 				c.Visible = not isCollapsed
 			end)
+			
+			if not success then
+				-- Debug
+				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+				DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+			end
 		end
 	end)
 
@@ -820,7 +857,6 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding)
 	table.insert(ALL_CONNECTIONS, c4)
 
 	Update()
-
 
 	return container
 end
@@ -901,6 +937,10 @@ local output_Camera = CreateOutput(folder_Information, 3)
 local output_Character = CreateOutput(folder_Information, 8)
 local output_Server = CreateOutput(folder_Information, 2)
 
+-- Debug
+local folder_Debug = CreateFolder(elementsContainer, "Debug")
+local output_Debug = CreateOutput(folder_Debug, 10)
+
 
 local espBoxFolder = Instance.new("Folder", applicationGui)
 espBoxFolder.Name = ""
@@ -966,7 +1006,7 @@ local freecamPosition = Vector3.new(0, 0, 0)
 local freecamRotation = Vector2.new(0, 0)
 
 local lastPrimaryPartPosition = Vector3.new(0, 0, 0)
-local characterRealVelocityHistoryLength = 30
+local characterRealVelocityHistoryLength = 50
 local characterRealVelocityHistory = table.create(characterRealVelocityHistoryLength, 0)
 
 local teleportForwardKeybindLastPressed = 0
@@ -995,19 +1035,19 @@ local function CreateESPForPlayer(plr)
 	if switch_ESP_Enabled.On() == false then return end
 	if espTagFolder:FindFirstChild(plr.Name) then return end
 	
-	if espList[plr.Name] then return end
-	espList[plr.Name] = true
+	if espList[plr.Name] then return end -- Player is already tracked
+	espList[plr.Name] = true -- Record player
 	
-	local thread = coroutine.create(function()
+	task.spawn(function()
 		do
 			local steps = 0
 			
 			repeat
 				steps = steps + 1
-				wait()
-			until plr.Character or steps > 200
+				task.wait()
+			until plr.Character or steps > 400
 			
-			if plr.Character == nil or steps > 200 then
+			if plr.Character == nil or steps > 400 then
 				espList[plr.Name] = false
 				return
 			end
@@ -1019,19 +1059,31 @@ local function CreateESPForPlayer(plr)
 		local eventConnections = {}
 
 		-- Tag
-		local head = character:FindFirstChild("Head")
+		local head
+		local findHeadAttempts = 0
 		local isActuallyHead = true
-
-		if head == nil then
-			head = character.PrimaryPart
-			isActuallyHead = false
+		
+		local function FindHead()
+			findHeadAttempts = findHeadAttempts + 1
+			head = character:FindFirstChild("Head")
 			
 			if head == nil then
-				espList[plr.Name] = false
-				return
+				head = character.PrimaryPart
+				isActuallyHead = false
+
+				if head == nil then
+					head = character:FindFirstChildOfClass("BasePart")
+
+					if head == nil then
+						espList[plr.Name] = false
+						return
+					end
+				end
 			end
 		end
-
+		
+		FindHead()
+		
 		local tag = Instance.new("TextLabel", espTagFolder)
 		tag.Name = plr.Name
 		tag.Font = Enum.Font.GothamSemibold
@@ -1153,29 +1205,66 @@ local function CreateESPForPlayer(plr)
 		table.insert(ALL_CONNECTIONS, removedConnection)
 		
 		-- Loop
-		local stopLoop = false
 		local currentCharacter = character
+		local uniqueId = game:GetService("HttpService"):GenerateGUID(false)
+		
+		local function StopProcessLoop()
+			RUN_SERVICE:UnbindFromRenderStep(uniqueId)
+
+			if tag ~= nil then
+				tag:Destroy()
+			end
+
+			espList[plr.Name] = false
+
+			-- Destroy connections
+			for _, connection in pairs(eventConnections) do
+				if connection ~= nil then
+					connection:Disconnect()
+				end
+			end
+
+			-- Destroy boxes
+			for _, v in pairs(boxes) do
+				if v ~= nil then
+					v:Destroy()
+				end
+			end
+		end
 
 		local function Process()
-			if SCRIPT_ENABLED == false then
-				stopLoop = true
-				return
+			local processStartTime = tick()
+			
+			if not SCRIPT_ENABLED then
+				StopProcessLoop()
 			end
 				
 			-- If tag is missing then stop
 			if tag.Parent ~= espTagFolder then
-				stopLoop = true
+				StopProcessLoop()
 			end
 
 			-- Different character so stop
 			if character ~= currentCharacter then
-				stopLoop = true
+				StopProcessLoop()
 			end
 			
+			-- Missing head
 			if head == nil then
-				stopLoop = true
-			elseif not head:IsDescendantOf(workspace) then
-				stopLoop = true
+				FindHead()
+				
+				if findHeadAttempts > 100 then -- Probably died or left
+					StopProcessLoop()
+				end
+				
+				DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
+				
+				return
+			elseif not head:IsDescendantOf(workspace) then -- Probably died or left
+				StopProcessLoop()
+				DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
+				
+				return
 			end
 			
 			-- Check if we can continue
@@ -1185,6 +1274,7 @@ local function CreateESPForPlayer(plr)
 				-- Tag is not visible because camera is not facing player
 				if not onScreen then
 					tag.Visible = false
+					DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 					return
 				end
 				
@@ -1195,11 +1285,13 @@ local function CreateESPForPlayer(plr)
 					if switch_Use_Display_Name.On() then
 						if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
 							tag.Visible = false
+							DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 							return
 						end
 					else
 						if not string.find(string.lower(plr.Name), string.lower(keyword)) then
 							tag.Visible = false
+							DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 							return
 						end
 					end
@@ -1208,7 +1300,7 @@ local function CreateESPForPlayer(plr)
 			
 			-- Find player humanoid and character
 			local humanoid = nil
-
+			
 			if character then
 				humanoid = character:FindFirstChild("Humanoid")
 			end
@@ -1278,38 +1370,23 @@ local function CreateESPForPlayer(plr)
 			else
 				tag.Visible = false
 			end
+			
+			DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 		end
 		
+		-- Wrapper
 		local function pcallProcess()
 			local success, err = pcall(Process)
 			
 			if not success then
-				stopLoop = true
+				-- Debug
+				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+				DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
 			end
 		end
 
-		local uniqueId = game:GetService("HttpService"):GenerateGUID(false)
 		RUN_SERVICE:BindToRenderStep(uniqueId, Enum.RenderPriority.Last.Value, pcallProcess)
-		repeat RUN_SERVICE.RenderStepped:Wait() until stopLoop
-		RUN_SERVICE:UnbindFromRenderStep(uniqueId)
-		
-		tag:Destroy()
-		espList[plr.Name] = false
-		
-		-- Destroy connections
-		for _, connection in pairs(eventConnections) do
-			connection:Disconnect()
-		end
-		
-		-- Destroy boxes
-		for _, v in pairs(boxes) do
-			if v ~= nil then
-				v:Destroy()
-			end
-		end
 	end)
-
-	coroutine.resume(thread)
 end
 
 -- Add ESP for all players that exist
@@ -1338,9 +1415,11 @@ table.insert(ALL_CONNECTIONS, plrAdded)
 
 -- Process is called every frame
 local function Process(deltaTime)
+	local processLoopStart = tick()
+	
 	local success, err = pcall(function()
 		local camera = workspace.CurrentCamera
-
+		
 		-- Find character and humanoid
 		local character = LOCAL_PLAYER.Character
 		local humanoid = nil
@@ -1370,13 +1449,8 @@ local function Process(deltaTime)
 					end
 				end
 			else
-				for _, v in pairs(espBoxFolder:GetChildren()) do
-					v:Destroy()
-				end
-
-				for _, v in pairs(espTagFolder:GetChildren()) do
-					v:Destroy()
-				end
+				espBoxFolder:ClearAllChildren()
+				espTagFolder:ClearAllChildren()
 			end
 		end
 
@@ -1408,8 +1482,10 @@ local function Process(deltaTime)
 		end
 		
 		-- Value should match the number of players not loaded in
+		local missingTagCount = #game.Players:GetPlayers() - #espTagFolder:GetChildren() - 1
+		
 		if switch_ESP_Enabled.On() then
-			output_ESP.EditLabel(2, "Missing Tags: " .. #game.Players:GetPlayers() - #espTagFolder:GetChildren() - 1)
+			output_ESP.EditLabel(2, "Missing Tags: " .. missingTagCount)
 		else
 			output_ESP.EditLabel(2, "Missing Tags: N/A")
 		end
@@ -1509,19 +1585,39 @@ local function Process(deltaTime)
 		end
 		
 		if button_Teleport_To_Player.GetPressCount() > 0 then
-			pcall(function()
+			local success, err = pcall(function()
 				character:SetPrimaryPartCFrame(MatchPlayerWithString(input_Teleport_To_Player_Target.GetInputText()).Character:GetPrimaryPartCFrame())
 			end)
+			
+			if not success then
+				-- Debug
+				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+				DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+			end
 		end
 		
 		if button_Teleport_Forward.GetPressCount() > 0 then
-			pcall(function()
+			local success, err = pcall(function()
 				local root = character:FindFirstChild("HumanoidRootPart")
-
-				if root then
-					character:SetPrimaryPartCFrame(character:GetPrimaryPartCFrame() * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber()))
+				
+				if not root then
+					root = character.PrimaryPart
+					
+					if not root then
+						root = character:FindFirstChildOfClass("BasePart")
+						
+						if root then
+							character:SetPrimaryPartCFrame(character:GetPrimaryPartCFrame() * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber()))
+						end
+					end
 				end
 			end)
+			
+			if not success then
+				-- Debug
+				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+				DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+			end
 		end
 		
 		-- Noclip
@@ -1704,8 +1800,7 @@ local function Process(deltaTime)
 				end
 			end
 		end
-
-
+		
 		do -- Count how many players are not loaded in
 			if tick() - lastTickCheckLoadedPlayers > 1 then -- Check only every second
 				lastTickCheckLoadedPlayers = tick()
@@ -1758,12 +1853,55 @@ local function Process(deltaTime)
 			output_Character.EditLabel(6, "Jump Power: N/A")
 			output_Character.EditLabel(7, "Health: N/A")
 		end
+		
+		-- Debug
+		output_Debug.EditLabel(1, "Error Count: " .. DEBUG_ERROR_COUNT)
+		output_Debug.EditLabel(2, "Main Loop: " .. RoundNumber(DEBUG_MAIN_LOOP_TIME, 10) .. "s (1/" .. RoundNumber(1 / DEBUG_MAIN_LOOP_TIME, 2) .. ")")
+		
+		local average = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE / (missingTagCount + 1)
+		DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = 0
+		output_Debug.EditLabel(3, "All Tag Loops Average: " .. RoundNumber(average, 10) .. "s (1/" .. RoundNumber(1 / average, 2) .. ")")
+		
+		if DEBUG_ERROR_COUNT ~= LAST_DEBUG_ERROR_COUNT then
+			local msg = DEBUG_LAST_ERROR_MESSAGE
+			
+			if tostring(msg) == "nil" then
+				DEBUG_LAST_ERROR_MESSAGE = "nil error message"
+			end
+			
+			local labelCount = output_Debug.GetLabelCount()
+			local glyphAdvance = 7
+			local maxGlyphs = math.floor(output_Debug.GetSingleLabelAbsoluteSize().X / glyphAdvance)
+			local remainingText = "Last Error: " .. tostring(msg)
+			remainingText = remainingText:gsub("\n", "")
+			
+			for i = 4, labelCount do
+				output_Debug.EditLabel(i, "")
+			end
+
+			for i = 4, labelCount do
+				if string.len(remainingText) > maxGlyphs then
+					local sub = string.sub(remainingText, 1, maxGlyphs)
+					remainingText = string.sub(remainingText, maxGlyphs + 1, string.len(remainingText))
+
+					output_Debug.EditLabel(i, sub)
+				else
+					output_Debug.EditLabel(i, remainingText)
+					break
+				end
+			end
+		end
+		
+		LAST_DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT
 	end)
 	
 	if not success then
-		--print("-------------------")
-		--print(err)
+		-- Debug
+		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+		DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
 	end
+	
+	DEBUG_MAIN_LOOP_TIME = tick() - processLoopStart
 end
 
 -- Input began
@@ -1808,9 +1946,15 @@ applicationGui:Destroy() -- Destroy GUI
 SCRIPT_ENABLED = false
 
 for _, v in pairs(ALL_CONNECTIONS) do
-	pcall(function()
-		v:Disconnect()
+	local success, err = pcall(function()
+		if v ~= nil then
+			v:Disconnect()
+		end
 	end)
+	
+	-- Debug
+	DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+	DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
 end
 
 if switch_Freecam_Enabled.On() then
