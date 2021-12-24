@@ -1060,11 +1060,9 @@ local function CreateESPForPlayer(plr)
 
 		-- Tag
 		local head
-		local findHeadAttempts = 0
 		local isActuallyHead = true
 		
 		local function FindHead()
-			findHeadAttempts = findHeadAttempts + 1
 			head = character:FindFirstChild("Head")
 			
 			if head == nil then
@@ -1252,14 +1250,12 @@ local function CreateESPForPlayer(plr)
 			-- Missing head
 			if head == nil then
 				FindHead()
-				
-				if findHeadAttempts > 100 then -- Probably died or left
-					StopProcessLoop()
-				end
-				
 				DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 				
-				return
+				if head == nil then
+					StopProcessLoop()
+					return
+				end
 			elseif not head:IsDescendantOf(workspace) then -- Probably died or left
 				StopProcessLoop()
 				DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
@@ -1270,30 +1266,28 @@ local function CreateESPForPlayer(plr)
 			-- Check if we can continue
 			local tagPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position + Vector3.new(0, 1.4, 0))
 
-			do
-				-- Tag is not visible because camera is not facing player
-				if not onScreen then
-					tag.Visible = false
-					DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
-					return
-				end
-				
-				-- Isolate specific player
-				local keyword = input_Isolate_Player.GetInputText()
-				
-				if keyword ~= "" then
-					if switch_Use_Display_Name.On() then
-						if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
-							tag.Visible = false
-							DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
-							return
-						end
-					else
-						if not string.find(string.lower(plr.Name), string.lower(keyword)) then
-							tag.Visible = false
-							DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
-							return
-						end
+			-- Tag is not visible because camera is not facing player
+			if not onScreen then
+				tag.Visible = false
+				DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
+				return
+			end
+			
+			-- Isolate specific player
+			local keyword = input_Isolate_Player.GetInputText()
+			
+			if keyword ~= "" then
+				if switch_Use_Display_Name.On() then
+					if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
+						tag.Visible = false
+						DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
+						return
+					end
+				else
+					if not string.find(string.lower(plr.Name), string.lower(keyword)) then
+						tag.Visible = false
+						DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
+						return
 					end
 				end
 			end
@@ -1361,7 +1355,10 @@ local function CreateESPForPlayer(plr)
 				
 				item.Visible = switch_Label_Item_In_Hand.On()
 				
-				tag.Text = tagText
+				if tag.Text ~= tagText then
+					tag.Text = tagText
+				end
+				
 				tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
 				tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 
@@ -1476,8 +1473,6 @@ local function Process(deltaTime)
 			
 			for i, v in pairs(missingPlayers) do
 				CreateESPForPlayer(v)
-				
-				local x = espList[v.Name] and "true" or "false"
 			end
 		end
 		
@@ -1605,11 +1600,11 @@ local function Process(deltaTime)
 					
 					if not root then
 						root = character:FindFirstChildOfClass("BasePart")
-						
-						if root then
-							character:SetPrimaryPartCFrame(character:GetPrimaryPartCFrame() * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber()))
-						end
 					end
+				end
+				
+				if root then
+					root.CFrame = root.CFrame * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber())
 				end
 			end)
 			
@@ -1922,8 +1917,16 @@ local inputConnection = INPUT_SERVICE.InputBegan:Connect(function(input, gamePro
 				
 				local root = character:FindFirstChild("HumanoidRootPart")
 
+				if not root then
+					root = character.PrimaryPart
+
+					if not root then
+						root = character:FindFirstChildOfClass("BasePart")
+					end
+				end
+
 				if root then
-					character:SetPrimaryPartCFrame(character:GetPrimaryPartCFrame() * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber()))
+					root.CFrame = root.CFrame * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber())
 				end
 			end
 			
