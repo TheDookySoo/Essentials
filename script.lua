@@ -1099,6 +1099,7 @@ local function CreateESPForPlayer(plr)
 		item.AnchorPoint = Vector2.new(0.5, 0)
 		item.TextStrokeTransparency = 0.9
 		item.BackgroundTransparency = 1
+		item.Visible = false
 
 		if LOCAL_PLAYER:IsFriendsWith(plr.UserId) then -- Label as friend
 			local friend = Instance.new("TextLabel", tag)
@@ -1229,6 +1230,59 @@ local function CreateESPForPlayer(plr)
 				end
 			end
 		end
+		
+		-- Tag update stuff
+		
+		local function UpdateTag(root, humanoid)
+			local tagText = ""
+
+			if switch_Use_Display_Name.On() then
+				tagText = "[" .. plr.DisplayName .. "]"
+			else
+				tagText = "[" .. plr.Name .. "]"
+			end
+
+			if switch_Bold_Tags.On() then
+				tag.TextStrokeTransparency = input_Tag_Transparency.GetInputTextAsNumber()
+
+				local color = tag.TextColor3
+				local v = (color.R + color.G + color.B) / 3
+
+				if v > 0.5 then
+					tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
+				else
+					tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
+				end
+			else
+				tag.TextStrokeTransparency = 0.9
+				tag.TextStrokeColor3 = Color3.new(0, 0, 0)
+			end
+
+			if humanoid then
+				local health = math.floor(humanoid.Health + 0.5)
+				local maxHealth = math.floor(humanoid.MaxHealth + 0.5)
+
+				tagText = tagText .. "[" .. health .. "/" .. maxHealth .. "]"
+			end
+
+			if character then
+				if switch_Show_Distance.On() and root then
+					local distance = (workspace.CurrentCamera.CFrame.Position - root.Position).Magnitude
+
+					tagText = tagText .. "[" .. math.floor(distance + 0.5) .. " studs]"
+				end
+			end
+
+
+			item.Visible = switch_Label_Item_In_Hand.On()
+
+			if tag.Text ~= tagText then
+				tag.Text = tagText
+			end
+
+			tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+			tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
+		end
 
 		local function Process()
 			local processStartTime = tick()
@@ -1297,6 +1351,10 @@ local function CreateESPForPlayer(plr)
 			
 			if character then
 				humanoid = character:FindFirstChild("Humanoid")
+				
+				if not humanoid then
+					humanoid = character:FindFirstChildOfClass("Humanoid")
+				end
 			end
 			
 			-- Switch to head if possible
@@ -1308,60 +1366,22 @@ local function CreateESPForPlayer(plr)
 					isActuallyHead = true
 				end
 			end
+			
+			-- Find root
+			local root = character:FindFirstChild("HumanoidRootPart")
+
+			if not root then
+				root = character.PrimaryPart
+
+				if not root then
+					root = character:FindFirstChildOfClass("BasePart")
+				end
+			end
 
 			-- Tag
 			if switch_Show_Tags.On() then
-				local tagText = ""
-
-				if switch_Use_Display_Name.On() then
-					tagText = "[" .. plr.DisplayName .. "]"
-				else
-					tagText = "[" .. plr.Name .. "]"
-				end
-
-				if switch_Bold_Tags.On() then
-					tag.TextStrokeTransparency = input_Tag_Transparency.GetInputTextAsNumber()
-
-					local color = tag.TextColor3
-					local v = (color.R + color.G + color.B) / 3
-
-					if v > 0.5 then
-						tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
-					else
-						tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
-					end
-				else
-					tag.TextStrokeTransparency = 0.9
-					tag.TextStrokeColor3 = Color3.new(0, 0, 0)
-				end
+				local tagText = UpdateTag(root, humanoid)
 				
-				if humanoid then
-					local health = math.floor(humanoid.Health + 0.5)
-					local maxHealth = math.floor(humanoid.MaxHealth + 0.5)
-					
-					tagText = tagText .. "[" .. health .. "/" .. maxHealth .. "]"
-				end
-				
-				if character then
-					local root = character:FindFirstChild("HumanoidRootPart")
-					
-					if switch_Show_Distance.On() and root then
-						local distance = (workspace.CurrentCamera.CFrame.Position - root.Position).Magnitude
-						
-						tagText = tagText .. "[" .. math.floor(distance + 0.5) .. " studs]"
-					end
-				end
-				
-				
-				item.Visible = switch_Label_Item_In_Hand.On()
-				
-				if tag.Text ~= tagText then
-					tag.Text = tagText
-				end
-				
-				tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
-				tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
-
 				tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - guiVerticalInset)
 				tag.Visible = true
 			else
@@ -1909,24 +1929,32 @@ local inputConnection = INPUT_SERVICE.InputBegan:Connect(function(input, gamePro
 			end
 			
 			if tick() - teleportForwardKeybindLastPressed < input_Teleport_Forward_Double_Tap_Time_Range.GetInputTextAsNumber(0.5) then
-				local character = game.Players.LocalPlayer.Character
-				
-				if character == nil then
-					return
-				end
-				
-				local root = character:FindFirstChild("HumanoidRootPart")
-
-				if not root then
-					root = character.PrimaryPart
+				local success, err = pcall(function()
+					local character = LOCAL_PLAYER.Character
+					
+					if character == nil then
+						return
+					end
+					
+					local root = character:FindFirstChild("HumanoidRootPart")
 
 					if not root then
-						root = character:FindFirstChildOfClass("BasePart")
-					end
-				end
+						root = character.PrimaryPart
 
-				if root then
-					root.CFrame = root.CFrame * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber())
+						if not root then
+							root = character:FindFirstChildOfClass("BasePart")
+						end
+					end
+
+					if root then
+						root.CFrame = root.CFrame * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber())
+					end
+				end)
+				
+				if not success then
+					-- Debug
+					DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+					DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
 				end
 			end
 			
