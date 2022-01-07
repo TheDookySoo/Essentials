@@ -1,14 +1,17 @@
 local SCRIPT_ENABLED = true
 
-local LOCAL_PLAYER = game.Players.LocalPlayer
-local MOUSE = LOCAL_PLAYER:GetMouse()
-local RNG = Random.new()
-
 local INPUT_SERVICE = game:GetService("UserInputService")
 local RUN_SERVICE = game:GetService("RunService")
 local TWEEN_SERVICE = game:GetService("TweenService")
+local PLAYER_SERVICE = game:GetService("Players")
+local REPLICATED_STORAGE = game:GetService("ReplicatedStorage")
+local STARTER_GUI = game:GetService("StarterGui")
 
-local APPLICATION_GUI_PARENT = game:GetService("RunService"):IsStudio() and LOCAL_PLAYER.PlayerGui or game.CoreGui
+local LOCAL_PLAYER = PLAYER_SERVICE.LocalPlayer
+local MOUSE = LOCAL_PLAYER:GetMouse()
+local RNG = Random.new()
+
+local APPLICATION_GUI_PARENT = RUN_SERVICE:IsStudio() and LOCAL_PLAYER.PlayerGui or game.CoreGui
 local ALL_CONNECTIONS = {}
 
 local DEBUG_ERROR_COUNT = 0
@@ -247,8 +250,8 @@ local function CreateSwitch(parent, title, onByDefault)
 			local goal_2 = {}
 			goal_2.ImageColor3 = THEME.Switch_On_Color
 
-			local tween_1 = game:GetService("TweenService"):Create(knob, tweenInfo, goal_1) tween_1:Play()
-			local tween_1 = game:GetService("TweenService"):Create(switchBackground, tweenInfo, goal_2) tween_1:Play()
+			local tween_1 = TWEEN_SERVICE:Create(knob, tweenInfo, goal_1) tween_1:Play()
+			local tween_1 = TWEEN_SERVICE:Create(switchBackground, tweenInfo, goal_2) tween_1:Play()
 		else
 			local goal_1 = {}
 			goal_1.AnchorPoint = Vector2.new(0, 0.5)
@@ -257,8 +260,8 @@ local function CreateSwitch(parent, title, onByDefault)
 			local goal_2 = {}
 			goal_2.ImageColor3 = THEME.Switch_Off_Color
 
-			local tween_1 = game:GetService("TweenService"):Create(knob, tweenInfo, goal_1) tween_1:Play()
-			local tween_1 = game:GetService("TweenService"):Create(switchBackground, tweenInfo, goal_2) tween_1:Play()
+			local tween_1 = TWEEN_SERVICE:Create(knob, tweenInfo, goal_1) tween_1:Play()
+			local tween_1 = TWEEN_SERVICE:Create(switchBackground, tweenInfo, goal_2) tween_1:Play()
 		end
 	end
 
@@ -355,6 +358,120 @@ local function CreateButton(parent, title, buttonText)
 	function button.GetPressCount()
 		local r = pressCount
 		pressCount = 0
+
+		return r
+	end
+
+	return button
+end
+
+local function CreateDualButtons(parent, title, leftButtonText, rightButtonText)
+	local container = Instance.new("Frame", parent)
+	container.Name = ""
+	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
+	container.BackgroundTransparency = 1
+
+	local titleLabel = Instance.new("TextLabel", container)
+	titleLabel.Name = ""
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
+	titleLabel.Position = UDim2.new(1, 0, 0, 0)
+	titleLabel.AnchorPoint = Vector2.new(1, 0)
+	titleLabel.Font = THEME.Font_SemiBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextColor3 = THEME.Text_Color
+	titleLabel.TextSize = THEME.Element_Title_Text_Size
+	titleLabel.Text = title
+
+	local leftButtonFrame = CreateFrame(
+		container,
+		UDim2.new(0, THEME.Button_Dimensions.X / 2 - 2, 0, THEME.Button_Dimensions.Y),
+		UDim2.new(0, THEME.Element_Left_Padding, 0.5, 0),
+		Vector2.new(0, 0.5),
+		THEME.Button_Background_Color,
+		THEME.Button_Border_Rounding
+	)
+
+	local rightButtonFrame = CreateFrame(
+		container,
+		UDim2.new(0, THEME.Button_Dimensions.X / 2 - 2, 0, THEME.Button_Dimensions.Y),
+		UDim2.new(0, THEME.Element_Left_Padding + (THEME.Button_Dimensions.X / 2) + 2, 0.5, 0),
+		Vector2.new(0, 0.5),
+		THEME.Button_Background_Color,
+		THEME.Button_Border_Rounding
+	)
+
+	local leftClickBox = Instance.new("TextButton", leftButtonFrame)
+	leftClickBox.Name = ""
+	leftClickBox.BackgroundTransparency = 1
+	leftClickBox.Font = THEME.Font_SemiBold
+	leftClickBox.TextSize = 12
+	leftClickBox.Size = UDim2.new(1, 0, 1, 0)
+	leftClickBox.TextColor3 = THEME.Text_Color
+	leftClickBox.Text = leftButtonText
+
+	local rightClickBox = leftClickBox:Clone()
+	rightClickBox.Parent = rightButtonFrame
+	rightClickBox.Text = rightButtonText
+
+	-- Functionality
+	local leftPressCount = 0
+	local rightPressCount = 0
+
+	-- Left
+	local c1 = leftClickBox.MouseButton1Click:Connect(function()
+		leftPressCount = leftPressCount + 1
+
+		leftButtonFrame.ImageColor3 = THEME.Button_Background_Color
+		task.wait(1/30)
+		leftButtonFrame.ImageColor3 = THEME.Button_Engaged_Color
+	end)
+
+	local c2 = leftClickBox.MouseEnter:Connect(function()
+		leftButtonFrame.ImageColor3 = THEME.Button_Engaged_Color
+	end)
+
+	local c3 = leftClickBox.MouseLeave:Connect(function()
+		leftButtonFrame.ImageColor3 = THEME.Button_Background_Color
+	end)
+
+	-- Right
+	local c4 = rightClickBox.MouseButton1Click:Connect(function()
+		rightPressCount = rightPressCount + 1
+
+		rightButtonFrame.ImageColor3 = THEME.Button_Background_Color
+		task.wait(1/30)
+		rightButtonFrame.ImageColor3 = THEME.Button_Engaged_Color
+	end)
+
+	local c5 = rightClickBox.MouseEnter:Connect(function()
+		rightButtonFrame.ImageColor3 = THEME.Button_Engaged_Color
+	end)
+
+	local c6 = rightClickBox.MouseLeave:Connect(function()
+		rightButtonFrame.ImageColor3 = THEME.Button_Background_Color
+	end)
+
+	table.insert(ALL_CONNECTIONS, c1)
+	table.insert(ALL_CONNECTIONS, c2)
+	table.insert(ALL_CONNECTIONS, c3)
+	table.insert(ALL_CONNECTIONS, c4)
+	table.insert(ALL_CONNECTIONS, c5)
+	table.insert(ALL_CONNECTIONS, c6)
+
+	-- Button class
+	local button = {}
+
+	function button.GetLeftButtonPressCount()
+		local r = leftPressCount
+		leftPressCount = 0
+
+		return r
+	end
+
+	function button.GetRightButtonPressCount()
+		local r = rightPressCount
+		rightPressCount = 0
 
 		return r
 	end
@@ -930,6 +1047,17 @@ local folder_Misc = CreateFolder(elementsContainer, "Misc")
 local button_Fix_Camera = CreateButton(folder_Misc, "Fix Camera", "Fix")
 local button_Load_World_At_Camera = CreateButton(folder_Misc, "Load World At Camera", "Load")
 
+-- Core Gui
+local folder_CoreGui = CreateFolder(elementsContainer, "Core Gui")
+local dualButtons_ResetCharacter = CreateDualButtons(folder_CoreGui, "Reset Character", "Enable", "Disable")
+local dualButtons_All = CreateDualButtons(folder_CoreGui, "All", "Enable", "Disable")
+CreatePadding(folder_CoreGui, 4)
+--local dualButtons_PlayerList = CreateDualButtons(folder_CoreGui, "Player List", "Enable", "Disable")
+--local dualButtons_Health = CreateDualButtons(folder_CoreGui, "Health", "Enable", "Disable")
+local dualButtons_Backpack = CreateDualButtons(folder_CoreGui, "Backpack", "Enable", "Disable")
+local dualButtons_Chat = CreateDualButtons(folder_CoreGui, "Chat", "Enable", "Disable")
+--local dualButtons_EmotesMenu = CreateDualButtons(folder_CoreGui, "Emotes Menu", "Enable", "Disable")
+
 -- Information
 local folder_Information = CreateFolder(elementsContainer, "Information")
 local output_ESP = CreateOutput(folder_Information, 2)
@@ -990,7 +1118,7 @@ crosshairHorizontal.ZIndex = 10
 
 -- Functions
 local function MatchPlayerWithString(str)
-	for _, v in pairs(game.Players:GetPlayers()) do
+	for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
 		if string.find(string.lower(v.Name), string.lower(str)) then
 			return v
 		end
@@ -1012,7 +1140,7 @@ local characterRealVelocityHistory = table.create(characterRealVelocityHistoryLe
 local teleportForwardKeybindLastPressed = 0
 
 -- Freecam scroll
-local inputChangedConnection = game:GetService("UserInputService").InputChanged:Connect(function(input, gameProcessed)
+local inputChangedConnection = INPUT_SERVICE.InputChanged:Connect(function(input, gameProcessed)
 	if SCRIPT_ENABLED then
 		if input.UserInputType == Enum.UserInputType.MouseWheel and not gameProcessed then
 			if switch_Freecam_Enabled.On() then
@@ -1261,7 +1389,7 @@ local function CreateESPForPlayer(plr)
 			if humanoid then
 				local health = math.floor(humanoid.Health + 0.5)
 				local maxHealth = math.floor(humanoid.MaxHealth + 0.5)
-
+				
 				tagText = tagText .. "[" .. health .. "/" .. maxHealth .. "]"
 			end
 
@@ -1407,7 +1535,7 @@ local function CreateESPForPlayer(plr)
 end
 
 -- Add ESP for all players that exist
-for _, v in pairs(game.Players:GetPlayers()) do
+for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
 	if v ~= LOCAL_PLAYER then
 		CreateESPForPlayer(v)
 
@@ -1420,7 +1548,7 @@ for _, v in pairs(game.Players:GetPlayers()) do
 end
 
 -- Add ESP for all players that will join the game
-local plrAdded = game.Players.PlayerAdded:Connect(function(plr)
+local plrAdded = PLAYER_SERVICE.PlayerAdded:Connect(function(plr)
 	local c = plr.CharacterAdded:Connect(function()
 		CreateESPForPlayer(plr)
 	end)
@@ -1460,7 +1588,7 @@ local function Process(deltaTime)
 		-- ESP
 		if switch_ESP_Enabled.ValueChanged() then
 			if switch_ESP_Enabled.On() then
-				for _, v in pairs(game.Players:GetPlayers()) do
+				for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
 					if v ~= LOCAL_PLAYER then
 						CreateESPForPlayer(v)
 					end
@@ -1485,7 +1613,7 @@ local function Process(deltaTime)
 			
 			local missingPlayers = {}
 			
-			for _, v in pairs(game.Players:GetPlayers()) do
+			for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
 				if not espTagFolder:FindFirstChild(v.Name) and v ~= LOCAL_PLAYER then
 					table.insert(missingPlayers, v)
 				end
@@ -1497,7 +1625,7 @@ local function Process(deltaTime)
 		end
 		
 		-- Value should match the number of players not loaded in
-		local missingTagCount = #game.Players:GetPlayers() - #espTagFolder:GetChildren() - 1
+		local missingTagCount = #PLAYER_SERVICE:GetPlayers() - #espTagFolder:GetChildren() - 1
 		
 		if switch_ESP_Enabled.On() then
 			output_ESP.EditLabel(2, "Missing Tags: " .. missingTagCount)
@@ -1661,6 +1789,28 @@ local function Process(deltaTime)
 			LOCAL_PLAYER:RequestStreamAroundAsync(camera.CFrame.Position)
 		end
 		
+		-- Core Gui
+		if dualButtons_ResetCharacter.GetLeftButtonPressCount() > 0  then STARTER_GUI:SetCore("ResetButtonCallback", true) end
+		if dualButtons_ResetCharacter.GetRightButtonPressCount() > 0 then STARTER_GUI:SetCore("ResetButtonCallback", false) end
+		
+		if dualButtons_All.GetLeftButtonPressCount() > 0         then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.All, true) end
+		if dualButtons_All.GetRightButtonPressCount() > 0        then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end
+		
+		--if dualButtons_PlayerList.GetLeftButtonPressCount() > 0  then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, true) end
+		--if dualButtons_PlayerList.GetRightButtonPressCount() > 0 then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false) end
+		
+		--if dualButtons_Health.GetLeftButtonPressCount() > 0      then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Health, true) end
+		--if dualButtons_Health.GetRightButtonPressCount() > 0     then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false) end
+		
+		if dualButtons_Backpack.GetLeftButtonPressCount() > 0    then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true) end
+		if dualButtons_Backpack.GetRightButtonPressCount() > 0   then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end
+		
+		if dualButtons_Chat.GetLeftButtonPressCount() > 0        then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true) end
+		if dualButtons_Chat.GetRightButtonPressCount() > 0       then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false) end
+		
+		--if dualButtons_EmotesMenu.GetLeftButtonPressCount() > 0  then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, true) end
+		--if dualButtons_EmotesMenu.GetRightButtonPressCount() > 0 then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, false) end
+		
 		-- Aimbot
 		if INPUT_SERVICE:IsKeyDown(keybind_Aimbot_Engage.GetKeyCode()) and switch_Aimbot_Enabled.On() then
 			if aimbotTarget == nil then
@@ -1670,7 +1820,7 @@ local function Process(deltaTime)
 				local minDistance = math.huge
 				local camDir = camera.CFrame.LookVector
 
-				for _, v in pairs(game.Players:GetPlayers()) do
+				for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
 					if v.Character and v.Name ~= LOCAL_PLAYER.Name then
 						local checked = true
 
@@ -1822,7 +1972,7 @@ local function Process(deltaTime)
 
 				local notLoadedCount = 0
 
-				for _, v in pairs(game.Players:GetPlayers()) do
+				for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
 					local isLoaded = true
 
 					if not v.Character then
@@ -1849,7 +1999,7 @@ local function Process(deltaTime)
 		output_Character.EditLabel(3, "Character Velocity Property: " .. charVelocityPropertyString)
 		output_Character.EditLabel(4, "Character Velocity Real: " .. charVelocityRealString)
 
-		output_Server.EditLabel(1, "Player Count: " .. #game.Players:GetPlayers() .. "/" .. game.Players.MaxPlayers)
+		output_Server.EditLabel(1, "Player Count: " .. #PLAYER_SERVICE:GetPlayers() .. "/" .. PLAYER_SERVICE.MaxPlayers)
 		output_Server.EditLabel(2, "Job ID: " .. game.JobId)
 
 		if humanoid then
