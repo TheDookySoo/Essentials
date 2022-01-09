@@ -1005,7 +1005,7 @@ local button_Teleport_Forward = CreateButton(folder_Teleport, "Teleport Forward"
 local input_Teleport_Forward_Studs = CreateInput(folder_Teleport, "Teleport Forward Studs", 5)
 CreatePadding(folder_Teleport, 4)
 local switch_Teleport_Forward_Double_Tap = CreateSwitch(folder_Teleport, "TP Forward Double Tap", false)
-local keybind_Teleport_Forward_Double_Tap = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.E)
+local keybind_Teleport_Forward_Double_Tap = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.T)
 local input_Teleport_Forward_Double_Tap_Time_Range = CreateInput(folder_Teleport, "Accepted Time Range [s]", "0.2")
 
 -- ESP Settings
@@ -1739,7 +1739,7 @@ local function Process(deltaTime)
 			end
 		end
 		
-		if button_Teleport_Forward.GetPressCount() > 0 then
+		for i = 1, button_Teleport_Forward.GetPressCount() do
 			local success, err = pcall(function()
 				local root = character:FindFirstChild("HumanoidRootPart")
 				
