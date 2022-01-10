@@ -998,15 +998,15 @@ local input_Isolate_Player = CreateInput(folder_ESP, "Isolate Player", "")
 local folder_Teleport = CreateFolder(elementsContainer, "Teleport")
 local button_Teleport_To_Camera = CreateButton(folder_Teleport, "Teleport To Camera", "Teleport")
 CreatePadding(folder_Teleport, 4)
-local button_Teleport_To_Player = CreateButton(folder_Teleport, "Teleport To Player", "Teleport")
 local input_Teleport_To_Player_Target = CreateInput(folder_Teleport, "Player Name", "")
+local button_Teleport_To_Player = CreateButton(folder_Teleport, "Teleport To Player", "Teleport")
 CreatePadding(folder_Teleport, 4)
 local button_Teleport_Forward = CreateButton(folder_Teleport, "Teleport Forward", "Teleport")
 local input_Teleport_Forward_Studs = CreateInput(folder_Teleport, "Teleport Forward Studs", 5)
 CreatePadding(folder_Teleport, 4)
 local switch_Teleport_Forward_Double_Tap = CreateSwitch(folder_Teleport, "TP Forward Double Tap", false)
 local keybind_Teleport_Forward_Double_Tap = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.T)
-local input_Teleport_Forward_Double_Tap_Time_Range = CreateInput(folder_Teleport, "Accepted Time Range [s]", "0.2")
+local input_Teleport_Forward_Double_Tap_Time_Range = CreateInput(folder_Teleport, "Valid Time Range [s]", "0.2")
 
 -- ESP Settings
 local folder_ESP_Settings = CreateFolder(elementsContainer, "ESP Settings")
@@ -1293,6 +1293,8 @@ local function CreateESPForPlayer(plr)
 		end
 
 		local addedConnection = character.ChildAdded:Connect(function(c)
+			task.wait()
+			
 			if c:IsA("BasePart") and c.Name ~= "HumanoidRootPart" then
 				AddBox(c)
 			elseif c:IsA("Tool") then -- If player equips tool, then display that
