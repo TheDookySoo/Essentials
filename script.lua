@@ -1151,8 +1151,8 @@ local switch_Force_Slope_Angle = CreateSwitch(folder_Character, "Force Slope Ang
 
 -- Camera
 local folder_Camera = CreateFolder(elementsContainer, "Camera", nil, false)
-local inputAndButton_CameraMinZoomDistance = CreateInputAndButton(folder_Camera, "Min Zoom Distance", LOCAL_PLAYER.CameraMinZoomDistance, "Set")
-local inputAndButton_CameraMaxZoomDistance = CreateInputAndButton(folder_Camera, "Max Zoom Distance", LOCAL_PLAYER.CameraMaxZoomDistance, "Set")
+local inputAndButton_CameraMinZoomDistance = CreateInputAndButton(folder_Camera, "Min Zoom Distance", 0.5, "Set")
+local inputAndButton_CameraMaxZoomDistance = CreateInputAndButton(folder_Camera, "Max Zoom Distance", 1024, "Set")
 CreatePadding(folder_Camera, 4)
 local button_Fix_Camera = CreateButton(folder_Camera, "Fix Camera", "Fix")
 local button_Load_World_At_Camera = CreateButton(folder_Camera, "Load World At Camera", "Load")
