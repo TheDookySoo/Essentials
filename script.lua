@@ -15,8 +15,6 @@ local APPLICATION_GUI_PARENT = RUN_SERVICE:IsStudio() and LOCAL_PLAYER.PlayerGui
 local ALL_CONNECTIONS = {}
 
 local DEBUG_ERROR_COUNT = 0
-local DEBUG_MAIN_LOOP_TIME = 0
-local DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = 0
 local LAST_DEBUG_ERROR_COUNT = 0
 
 -- Application Theme (determines how the application gui will look, what font is used for text and what colors are used for things)
@@ -44,7 +42,9 @@ THEME.Button_Border_Rounding = 3
 THEME.Input_Background_Color = Color3.fromRGB(30, 30, 30)
 THEME.Input_Height = 15
 THEME.Input_Border_Rounding = 3
-THEME.Input_Text_Size = 12 
+THEME.Input_Text_Size = 12
+
+THEME.InputAndButton_Button_Width = 60
 
 THEME.Output_Background_Color = Color3.fromRGB(30, 30, 30)
 THEME.Output_Background_Border_Rounding = 3
@@ -90,8 +90,13 @@ end
 
 -- Core Gui Elements
 local function CreateGui()
-	local gui = Instance.new("ScreenGui", APPLICATION_GUI_PARENT)
-	gui.Name = ""
+	local gui = Instance.new("ScreenGui")
+	
+	pcall(function()
+		syn.protect_gui(gui)
+	end)
+	
+	gui.Parent = APPLICATION_GUI_PARENT
 	gui.ResetOnSpawn = false
 
 	return gui
@@ -99,7 +104,6 @@ end
 
 local function CreatePadding(parent, height)
 	local padding = Instance.new("Frame", parent)
-	padding.Name = ""
 	padding.Size = UDim2.new(1, 0, 0, height)
 	padding.BackgroundTransparency = 1
 
@@ -114,7 +118,6 @@ local function CreateFrame(parent, size, position, anchorPoint, color, borderRou
 	if borderRounding == nil then borderRounding = 0                     end
 
 	local frame = Instance.new("ImageLabel", parent)
-	frame.Name = ""
 	frame.Image = "rbxassetid://3570695787"
 	frame.ImageColor3 = color
 	frame.BackgroundTransparency = 1
@@ -141,7 +144,6 @@ local function CreateScrollingFrame(parent, size, position, anchorPoint, element
 	if bottomPadding  == nil then bottomPadding  = 0                     end
 
 	local container = Instance.new("ScrollingFrame", parent)
-	container.Name = ""
 	container.BorderSizePixel = 0
 	container.BackgroundTransparency = 1
 	container.ScrollingEnabled = true
@@ -155,7 +157,6 @@ local function CreateScrollingFrame(parent, size, position, anchorPoint, element
 	container.CanvasSize = UDim2.new(0, 0, 0, elementPadding + bottomPadding) -- Just incase the padding is massive
 
 	local list = Instance.new("UIListLayout", container)
-	list.Name = ""
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.Padding = UDim.new(0, elementPadding)
 
@@ -193,12 +194,10 @@ end
 
 local function CreateSwitch(parent, title, onByDefault)
 	local container = Instance.new("Frame", parent)
-	container.Name = ""
 	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
 	container.BackgroundTransparency = 1
 
 	local titleLabel = Instance.new("TextLabel", container)
-	titleLabel.Name = ""
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
 	titleLabel.Position = UDim2.new(1, 0, 0, 0)
@@ -221,7 +220,6 @@ local function CreateSwitch(parent, title, onByDefault)
 	local knobWidth = THEME.Switch_Dimensions.Y - 2
 
 	local knob = Instance.new("ImageLabel", switchBackground)
-	knob.Name = ""
 	knob.Image = "rbxassetid://3570695787"
 	knob.BackgroundTransparency = 1
 	knob.ImageColor3 = THEME.Switch_Knob_Color
@@ -230,7 +228,6 @@ local function CreateSwitch(parent, title, onByDefault)
 	knob.AnchorPoint = Vector2.new(0, 0.5)
 
 	local switchClickBox = Instance.new("TextButton", switchBackground)
-	switchClickBox.Name = ""
 	switchClickBox.BackgroundTransparency = 1
 	switchClickBox.Size = UDim2.new(1, 0, 1, 0)
 	switchClickBox.Text = ""
@@ -295,12 +292,10 @@ end
 
 local function CreateButton(parent, title, buttonText)
 	local container = Instance.new("Frame", parent)
-	container.Name = ""
 	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
 	container.BackgroundTransparency = 1
 
 	local titleLabel = Instance.new("TextLabel", container)
-	titleLabel.Name = ""
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
 	titleLabel.Position = UDim2.new(1, 0, 0, 0)
@@ -321,7 +316,6 @@ local function CreateButton(parent, title, buttonText)
 	)
 
 	local clickBox = Instance.new("TextButton", buttonFrame)
-	clickBox.Name = ""
 	clickBox.BackgroundTransparency = 1
 	clickBox.Font = THEME.Font_SemiBold
 	clickBox.TextSize = 12
@@ -367,12 +361,10 @@ end
 
 local function CreateDualButtons(parent, title, leftButtonText, rightButtonText)
 	local container = Instance.new("Frame", parent)
-	container.Name = ""
 	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
 	container.BackgroundTransparency = 1
 
 	local titleLabel = Instance.new("TextLabel", container)
-	titleLabel.Name = ""
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
 	titleLabel.Position = UDim2.new(1, 0, 0, 0)
@@ -402,7 +394,6 @@ local function CreateDualButtons(parent, title, leftButtonText, rightButtonText)
 	)
 
 	local leftClickBox = Instance.new("TextButton", leftButtonFrame)
-	leftClickBox.Name = ""
 	leftClickBox.BackgroundTransparency = 1
 	leftClickBox.Font = THEME.Font_SemiBold
 	leftClickBox.TextSize = 12
@@ -483,12 +474,10 @@ local function CreateInput(parent, title, default)
 	if default == nil then default = "Enter here" end
 
 	local container = Instance.new("Frame", parent)
-	container.Name = ""
 	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
 	container.BackgroundTransparency = 1
 
 	local titleLabel = Instance.new("TextLabel", container)
-	titleLabel.Name = ""
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
 	titleLabel.Position = UDim2.new(1, 0, 0, 0)
@@ -511,7 +500,6 @@ local function CreateInput(parent, title, default)
 	)
 
 	local inputTextBox = Instance.new("TextBox", background)
-	inputTextBox.Name = ""
 	inputTextBox.BackgroundTransparency = 1
 	inputTextBox.Size = UDim2.new(1, -4, 0, THEME.Input_Text_Size)
 	inputTextBox.Position = UDim2.new(1, 0, 0.5, 0)
@@ -562,7 +550,9 @@ local function CreateInput(parent, title, default)
 	return input
 end
 
-local function CreateKeybind(parent, title, defaultKeyCode)
+local function CreateInputAndButton(parent, title, defaultInput, buttonText)
+	if defaultInput == nil then defaultInput = "Enter here" end
+
 	local container = Instance.new("Frame", parent)
 	container.Name = ""
 	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
@@ -570,6 +560,133 @@ local function CreateKeybind(parent, title, defaultKeyCode)
 
 	local titleLabel = Instance.new("TextLabel", container)
 	titleLabel.Name = ""
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
+	titleLabel.Position = UDim2.new(1, 0, 0, 0)
+	titleLabel.AnchorPoint = Vector2.new(1, 0)
+	titleLabel.Font = THEME.Font_SemiBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextColor3 = THEME.Text_Color
+	titleLabel.TextSize = THEME.Element_Title_Text_Size
+	titleLabel.Text = title
+
+	local backgroundWidth = parent.AbsoluteSize.X - THEME.Element_Left_Padding - 8
+
+	local background = CreateFrame(
+		container,
+		UDim2.new(0, backgroundWidth - THEME.InputAndButton_Button_Width - 4, 0, THEME.Input_Height),
+		UDim2.new(0, THEME.Element_Left_Padding, 0.5, 0),
+		Vector2.new(0, 0.5),
+		THEME.Input_Background_Color,
+		THEME.Input_Border_Rounding
+	)
+
+	local inputTextBox = Instance.new("TextBox", background)
+	inputTextBox.Name = ""
+	inputTextBox.BackgroundTransparency = 1
+	inputTextBox.Size = UDim2.new(1, -4, 0, THEME.Input_Text_Size)
+	inputTextBox.Position = UDim2.new(1, 0, 0.5, 0)
+	inputTextBox.AnchorPoint = Vector2.new(1, 0.5)
+	inputTextBox.Font = THEME.Font_SemiBold
+	inputTextBox.TextSize = THEME.Input_Text_Size
+	inputTextBox.TextColor3 = THEME.Text_Color
+	inputTextBox.TextXAlignment = Enum.TextXAlignment.Left
+	inputTextBox.TextScaled = true
+	inputTextBox.Text = defaultInput
+
+	-- Functionality
+	local textChanged = false
+	local previousText = inputTextBox.Text
+
+	local c1 = inputTextBox.FocusLost:Connect(function()
+		if previousText ~= inputTextBox.Text then
+			textChanged = true
+		end
+
+		previousText = inputTextBox.Text
+	end)
+
+	table.insert(ALL_CONNECTIONS, c1)
+
+	-- Button
+
+	local buttonFrame = CreateFrame(
+		container,
+		UDim2.new(0, THEME.InputAndButton_Button_Width, 0, THEME.Button_Dimensions.Y),
+		UDim2.new(0, THEME.Element_Left_Padding + (backgroundWidth - THEME.InputAndButton_Button_Width), 0.5, 0),
+		Vector2.new(0, 0.5),
+		THEME.Button_Background_Color,
+		THEME.Button_Border_Rounding
+	)
+
+	local clickBox = Instance.new("TextButton", buttonFrame)
+	clickBox.Name = ""
+	clickBox.BackgroundTransparency = 1
+	clickBox.Font = THEME.Font_SemiBold
+	clickBox.TextSize = 12
+	clickBox.Size = UDim2.new(1, 0, 1, 0)
+	clickBox.TextColor3 = THEME.Text_Color
+	clickBox.Text = buttonText
+
+	local pressCount = 0
+
+	local c2 = clickBox.MouseButton1Click:Connect(function()
+		pressCount = pressCount + 1
+
+		buttonFrame.ImageColor3 = THEME.Button_Background_Color
+		task.wait()
+		buttonFrame.ImageColor3 = THEME.Button_Engaged_Color
+	end)
+
+	local c3 = clickBox.MouseEnter:Connect(function()
+		buttonFrame.ImageColor3 = THEME.Button_Engaged_Color
+	end)
+
+	local c4 = clickBox.MouseLeave:Connect(function()
+		buttonFrame.ImageColor3 = THEME.Button_Background_Color
+	end)
+
+	table.insert(ALL_CONNECTIONS, c1)
+	table.insert(ALL_CONNECTIONS, c2)
+	table.insert(ALL_CONNECTIONS, c3)
+
+	-- Class
+
+	local object = {}
+
+	function object.GetPressCount()
+		local r = pressCount
+		pressCount = 0
+
+		return r
+	end
+
+	function object.GetInputText()
+		return inputTextBox.Text
+	end
+
+	function object.GetInputTextAsNumber()
+		local n = tonumber(inputTextBox.Text)
+
+		return n == nil and 0 or n
+	end
+
+	function object.InputChanged()
+		local r = textChanged
+		textChanged = false
+
+		return r
+	end
+
+	return object
+end
+
+local function CreateKeybind(parent, title, defaultKeyCode)
+	local container = Instance.new("Frame", parent)
+	container.Size = UDim2.new(1, 0, 0, THEME.Element_Height)
+	container.BackgroundTransparency = 1
+
+	local titleLabel = Instance.new("TextLabel", container)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Size = UDim2.new(1, -THEME.Element_Title_Left_Padding, 1, 0)
 	titleLabel.Position = UDim2.new(1, 0, 0, 0)
@@ -590,7 +707,6 @@ local function CreateKeybind(parent, title, defaultKeyCode)
 	)
 
 	local textButton = Instance.new("TextButton", background)
-	textButton.Name = ""
 	textButton.Size = UDim2.new(1, 0, 1, 0)
 	textButton.BackgroundTransparency = 1
 	textButton.Font = THEME.Font_SemiBold
@@ -646,7 +762,6 @@ local function CreateOutput(parent, labelCount)
 	local backgroundHeight = THEME.Output_Label_Height * labelCount
 
 	local container = Instance.new("Frame", parent)
-	container.Name = ""
 	container.Size = UDim2.new(1, 0, 0, backgroundHeight + THEME.Output_Background_Vertical_Padding)
 	container.BackgroundTransparency = 1
 
@@ -663,7 +778,6 @@ local function CreateOutput(parent, labelCount)
 
 	for i = 1, labelCount do
 		local label = Instance.new("TextBox", background)
-		label.Name = ""
 		label.Size = UDim2.new(1, -THEME.Output_Label_Left_Text_Padding, 0, THEME.Output_Label_Height)
 		label.Position = UDim2.new(1, 0, 0, THEME.Output_Label_Height * (i - 1))
 		label.AnchorPoint = Vector2.new(1, 0)
@@ -737,7 +851,6 @@ local function CreateWindow(parent, title, size)
 
 	-- Title also acts as the handle with the minimize and maximize buttons
 	local titleLabel = Instance.new("TextLabel", background)
-	titleLabel.Name = ""
 	titleLabel.Size = UDim2.new(1, 0, 0, 20)
 	titleLabel.Position = UDim2.new(0, 8, 0, 0)
 	titleLabel.BackgroundTransparency = 1
@@ -749,14 +862,12 @@ local function CreateWindow(parent, title, size)
 	titleLabel.Text = title
 
 	local dragHandle = Instance.new("TextButton", background)
-	dragHandle.Name = ""
 	dragHandle.Size = UDim2.new(1, 0, 0, 20)
 	dragHandle.BackgroundTransparency = 1
 	dragHandle.Text = ""
 
 	-- Buttons
 	local closeButton = Instance.new("ImageButton", background)
-	closeButton.Name = ""
 	closeButton.Image = "rbxassetid://4389749368"
 	closeButton.Size = UDim2.new(0, 12, 0, 12)
 	closeButton.BackgroundTransparency = 1
@@ -765,7 +876,6 @@ local function CreateWindow(parent, title, size)
 	closeButton.ZIndex = 2
 
 	local miniButton = Instance.new("ImageButton", background)
-	miniButton.Name = ""
 	miniButton.Image = "rbxassetid://4530358017"
 	miniButton.Size = UDim2.new(0, 12, 0, 12)
 	miniButton.BackgroundTransparency = 1
@@ -858,23 +968,21 @@ local function CreateWindow(parent, title, size)
 	return class
 end
 
-local function CreateFolder(scrollingFrame, folderName, elementPadding)
-	if folderName     == nil then folderName     = "Folder" end
-	if elementPadding == nil then elementPadding = 0        end
+local function CreateFolder(scrollingFrame, folderName, elementPadding, collapsedDefault)
+	if folderName       == nil then folderName     = "Folder" end
+	if elementPadding   == nil then elementPadding = 0        end
+	if collapsedDefault == nil then collapsedDefault = false  end
 
 	local frame = Instance.new("Frame", scrollingFrame)
-	frame.Name = ""
 	frame.BackgroundTransparency = 1
 	frame.Size = UDim2.new(1, 0, 0, THEME.Folder_Handle_Height)
 
 	local container = Instance.new("Frame", frame)
-	container.Name = ""
 	container.BackgroundTransparency = 1
 	container.Size = UDim2.new(1, 0, 0, 0)
 	container.Position = UDim2.new(0, 0, 0, THEME.Folder_Handle_Height)
 
 	local titleLabel = Instance.new("TextLabel", frame)
-	titleLabel.Name = ""
 	titleLabel.Size = UDim2.new(1, -THEME.Folder_Title_Left_Padding, 0, THEME.Folder_Handle_Height)
 	titleLabel.Position = UDim2.new(1, 0, 0, 0)
 	titleLabel.AnchorPoint = Vector2.new(1, 0)
@@ -887,7 +995,6 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding)
 	titleLabel.Text = folderName
 
 	local collapse = Instance.new("ImageButton", frame)
-	collapse.Name = ""
 	collapse.Image = "http://www.roblox.com/asset/?id=54479709"
 	collapse.BackgroundTransparency = 1
 	collapse.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -895,7 +1002,6 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding)
 	collapse.Position = UDim2.new(0, THEME.Folder_Collapse_Left_Padding, 0, THEME.Folder_Handle_Height / 2 + 3)
 
 	local list = Instance.new("UIListLayout", container)
-	list.Name = ""
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.Padding = UDim.new(0, elementPadding)
 
@@ -957,7 +1063,9 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding)
 	local c4 = container.DescendantAdded:Connect(function(c)
 		if isCollapsed then
 			local success, err = pcall(function()
-				c.Visible = not isCollapsed
+				if c:IsA("GuiObject") then
+					c.Visible = not isCollapsed
+				end
 			end)
 			
 			if not success then
@@ -972,13 +1080,15 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding)
 	table.insert(ALL_CONNECTIONS, c2)
 	table.insert(ALL_CONNECTIONS, c3)
 	table.insert(ALL_CONNECTIONS, c4)
-
-	Update()
+	
+	task.spawn(function()
+		RUN_SERVICE.RenderStepped:Wait()
+		isCollapsed = collapsedDefault
+		Update()
+	end)
 
 	return container
 end
-
-
 
 
 -- Application Creation
@@ -988,28 +1098,13 @@ local window = CreateWindow(applicationGui, "Essentials", { 380, 290 })
 local elementsContainer = CreateScrollingFrame(window.GetBackground(), UDim2.new(1, 0, 1, -20), UDim2.new(0, 0, 0, 20), nil, 0, 6)
 
 -- ESP
-local folder_ESP = CreateFolder(elementsContainer, "ESP")
+local folder_ESP = CreateFolder(elementsContainer, "ESP", nil, false)
 local switch_ESP_Enabled = CreateSwitch(folder_ESP, "ESP Enabled", false)
 local switch_Freecam_Enabled = CreateSwitch(folder_ESP, "Freecam Enabled", false)
-CreatePadding(folder_ESP, 2)
 local input_Isolate_Player = CreateInput(folder_ESP, "Isolate Player", "")
 
--- Teleport
-local folder_Teleport = CreateFolder(elementsContainer, "Teleport")
-local button_Teleport_To_Camera = CreateButton(folder_Teleport, "Teleport To Camera", "Teleport")
-CreatePadding(folder_Teleport, 4)
-local input_Teleport_To_Player_Target = CreateInput(folder_Teleport, "Player Name", "")
-local button_Teleport_To_Player = CreateButton(folder_Teleport, "Teleport To Player", "Teleport")
-CreatePadding(folder_Teleport, 4)
-local button_Teleport_Forward = CreateButton(folder_Teleport, "Teleport Forward", "Teleport")
-local input_Teleport_Forward_Studs = CreateInput(folder_Teleport, "Teleport Forward Studs", 5)
-CreatePadding(folder_Teleport, 4)
-local switch_Teleport_Forward_Double_Tap = CreateSwitch(folder_Teleport, "TP Forward Double Tap", false)
-local keybind_Teleport_Forward_Double_Tap = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.T)
-local input_Teleport_Forward_Double_Tap_Time_Range = CreateInput(folder_Teleport, "Valid Time Range [s]", "0.2")
-
 -- ESP Settings
-local folder_ESP_Settings = CreateFolder(elementsContainer, "ESP Settings")
+local folder_ESP_Settings = CreateFolder(elementsContainer, "ESP Settings", nil, true)
 local switch_Show_Tags = CreateSwitch(folder_ESP_Settings, "Show Tags", true)
 local switch_Bold_Tags = CreateSwitch(folder_ESP_Settings, "Bold Tags", false)
 local switch_Use_Display_Name = CreateSwitch(folder_ESP_Settings, "Use Display Name", false)
@@ -1019,14 +1114,28 @@ local input_ESP_Transparency = CreateInput(folder_ESP_Settings, "ESP Transparenc
 local input_Tag_Transparency = CreateInput(folder_ESP_Settings, "Tag Transparency", 0)
 
 -- Freecam Settings
-local folder_Freecam_Settings = CreateFolder(elementsContainer, "Freecam Settings")
+local folder_Freecam_Settings = CreateFolder(elementsContainer, "Freecam Settings", nil, true)
 local input_Freecam_Velocity = CreateInput(folder_Freecam_Settings, "Freecam Velocity", 100)
 local input_Freecam_Sensitivity = CreateInput(folder_Freecam_Settings, "Freecam Sensitivity", 0.5)
 local keybind_Freecam_Up = CreateKeybind(folder_Freecam_Settings, "Freecam Up", Enum.KeyCode.E)
 local keybind_Freecam_Down = CreateKeybind(folder_Freecam_Settings, "Freecam Down", Enum.KeyCode.Q)
 
+-- Teleport
+local folder_Teleport = CreateFolder(elementsContainer, "Teleport", nil, false)
+local button_Teleport_To_Camera = CreateButton(folder_Teleport, "Teleport To Camera", "Teleport")
+local inputAndButton_Teleport_To_Player = CreateInputAndButton(folder_Teleport, "Player Name", "", "Teleport")
+local inputAndButton_Teleport_Forward = CreateInputAndButton(folder_Teleport, "TP Forward Studs", "5", "Teleport")
+CreatePadding(folder_Teleport, 4)
+local switch_Teleport_Forward_Double_Tap = CreateSwitch(folder_Teleport, "TP Forward Double Tap", false)
+local keybind_Teleport_Forward_Double_Tap = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.T)
+local input_Teleport_Forward_Double_Tap_Time_Range = CreateInput(folder_Teleport, "Valid Time Range [s]", "0.2")
+CreatePadding(folder_Teleport, 4)
+local switch_KeybindClick_Teleport = CreateSwitch(folder_Teleport, "TP Keybind + Click TP")
+local switch_KeybindClick_Ignore_Transparent_Parents = CreateSwitch(folder_Teleport, "Ignore Transparent Parts", true)
+local keybind_KeybindClick_Teleport = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.LeftControl)
+
 -- Aimbot
-local folder_Aimbot = CreateFolder(elementsContainer, "Aimbot")
+local folder_Aimbot = CreateFolder(elementsContainer, "Aimbot", nil, true)
 local switch_Aimbot_Enabled = CreateSwitch(folder_Aimbot, "Aimbot Enabled", false)
 local switch_Aimbot_Team_Check = CreateSwitch(folder_Aimbot, "Team Check", false)
 local switch_Aimbot_Wall_Check = CreateSwitch(folder_Aimbot, "Wall Check", false)
@@ -1034,52 +1143,41 @@ local switch_Show_Crosshair = CreateSwitch(folder_Aimbot, "Show Crosshair", fals
 local keybind_Aimbot_Engage = CreateKeybind(folder_Aimbot, "Engage Aimbot", Enum.KeyCode.V)
 
 -- Character
-local folder_Character = CreateFolder(elementsContainer, "Character")
+local folder_Character = CreateFolder(elementsContainer, "Character", nil, true)
 local switch_Noclip_Enabled = CreateSwitch(folder_Character, "Noclip Enabled", false)
 local button_Sit = CreateButton(folder_Character, "Sit", "Sit")
-CreatePadding(folder_Character, 2)
-local input_Slope_Angle = CreateInput(folder_Character, "Slope Angle", 89)
-local button_Set_Slope_Angle = CreateButton(folder_Character, "Set Slope Angle", "Set")
+local inputAndButton_Slope_Angle = CreateInputAndButton(folder_Character, "Slope Angle", 89, "Set")
 local switch_Force_Slope_Angle = CreateSwitch(folder_Character, "Force Slope Angle", false)
 
--- Misc
-local folder_Misc = CreateFolder(elementsContainer, "Misc")
-local button_Fix_Camera = CreateButton(folder_Misc, "Fix Camera", "Fix")
-local button_Load_World_At_Camera = CreateButton(folder_Misc, "Load World At Camera", "Load")
+-- Camera
+local folder_Camera = CreateFolder(elementsContainer, "Camera", nil, false)
+local inputAndButton_CameraMinZoomDistance = CreateInputAndButton(folder_Camera, "Min Zoom Distance", LOCAL_PLAYER.CameraMinZoomDistance, "Set")
+local inputAndButton_CameraMaxZoomDistance = CreateInputAndButton(folder_Camera, "Max Zoom Distance", LOCAL_PLAYER.CameraMaxZoomDistance, "Set")
+CreatePadding(folder_Camera, 4)
+local button_Fix_Camera = CreateButton(folder_Camera, "Fix Camera", "Fix")
+local button_Load_World_At_Camera = CreateButton(folder_Camera, "Load World At Camera", "Load")
 
 -- Core Gui
-local folder_CoreGui = CreateFolder(elementsContainer, "Core Gui")
+local folder_CoreGui = CreateFolder(elementsContainer, "Core Gui", nil, false)
 local dualButtons_ResetCharacter = CreateDualButtons(folder_CoreGui, "Reset Character", "Enable", "Disable")
 local dualButtons_All = CreateDualButtons(folder_CoreGui, "All", "Enable", "Disable")
-CreatePadding(folder_CoreGui, 4)
---local dualButtons_PlayerList = CreateDualButtons(folder_CoreGui, "Player List", "Enable", "Disable")
---local dualButtons_Health = CreateDualButtons(folder_CoreGui, "Health", "Enable", "Disable")
-local dualButtons_Backpack = CreateDualButtons(folder_CoreGui, "Backpack", "Enable", "Disable")
-local dualButtons_Chat = CreateDualButtons(folder_CoreGui, "Chat", "Enable", "Disable")
---local dualButtons_EmotesMenu = CreateDualButtons(folder_CoreGui, "Emotes Menu", "Enable", "Disable")
 
 -- Information
-local folder_Information = CreateFolder(elementsContainer, "Information")
+local folder_Information = CreateFolder(elementsContainer, "Information", nil, false)
 local output_ESP = CreateOutput(folder_Information, 2)
-local output_Camera = CreateOutput(folder_Information, 3)
+local output_Camera = CreateOutput(folder_Information, 5)
 local output_Character = CreateOutput(folder_Information, 8)
 local output_Server = CreateOutput(folder_Information, 2)
 
 -- Debug
-local folder_Debug = CreateFolder(elementsContainer, "Debug")
+local folder_Debug = CreateFolder(elementsContainer, "Debug", nil, true)
 local output_Debug = CreateOutput(folder_Debug, 10)
 
-
 local espBoxFolder = Instance.new("Folder", applicationGui)
-espBoxFolder.Name = ""
-
 local espTagFolder = Instance.new("Folder", applicationGui)
-espTagFolder.Name = ""
-
 
 -- Cursor (used to show where the mouse incase the mouse icon is invisible)
 local cursor = Instance.new("Frame", applicationGui)
-cursor.Name = ""
 cursor.BorderSizePixel = 0
 cursor.Size = UDim2.new(0, 2, 0, 2)
 cursor.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1089,7 +1187,6 @@ cursor.BackgroundColor3 = Color3.new(1, 1, 1)
 local guiVerticalInset = game:GetService("GuiService"):GetGuiInset().Y
 
 local crosshairFrame = Instance.new("Frame", applicationGui)
-crosshairFrame.Name = ""
 crosshairFrame.Size = UDim2.new(0, 15, 0, 15)
 crosshairFrame.BackgroundTransparency = 1
 crosshairFrame.Position = UDim2.new(0.5, 0, 0.5, -guiVerticalInset / 2)
@@ -1097,7 +1194,6 @@ crosshairFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 crosshairFrame.Visible = false
 
 local crosshairVertical = Instance.new("Frame", crosshairFrame)
-crosshairVertical.Name = ""
 crosshairVertical.Size = UDim2.new(0, 1, 1, 0)
 crosshairVertical.Position = UDim2.new(0.5, 0, 0.5, 0)
 crosshairVertical.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1106,20 +1202,20 @@ crosshairVertical.BackgroundColor3 = Color3.new(1, 1, 1)
 crosshairVertical.Selectable = false
 crosshairVertical.ZIndex = 10
 
-local crosshairHorizontal = Instance.new("Frame", crosshairFrame)
-crosshairHorizontal.Name = ""
+local crosshairHorizontal = crosshairVertical:Clone()
+crosshairHorizontal.Parent = crosshairFrame
 crosshairHorizontal.Size = UDim2.new(1, 0, 0, 1)
-crosshairHorizontal.Position = UDim2.new(0.5, 0, 0.5, 0)
-crosshairHorizontal.AnchorPoint = Vector2.new(0.5, 0.5)
-crosshairHorizontal.BorderSizePixel = 0
-crosshairHorizontal.BackgroundColor3 = Color3.new(1, 1, 1)
-crosshairHorizontal.Selectable = false
-crosshairHorizontal.ZIndex = 10
 
 -- Functions
 local function MatchPlayerWithString(str)
 	for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
 		if string.find(string.lower(v.Name), string.lower(str)) then
+			return v
+		end
+	end
+	
+	for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
+		if string.find(string.lower(v.DisplayName), string.lower(str)) then
 			return v
 		end
 	end
@@ -1218,7 +1314,6 @@ local function CreateESPForPlayer(plr)
 		tag.TextSize = 11
 
 		local item = Instance.new("TextLabel", tag)
-		item.Name = ""
 		item.Text = ""
 		item.TextSize = 10
 		item.TextColor3 = Color3.new(0.4, 1, 0.4)
@@ -1231,7 +1326,6 @@ local function CreateESPForPlayer(plr)
 
 		if LOCAL_PLAYER:IsFriendsWith(plr.UserId) then -- Label as friend
 			local friend = Instance.new("TextLabel", tag)
-			friend.Name = ""
 			friend.Text = "FRIEND"
 			friend.TextSize = 8
 			friend.TextColor3 = Color3.new(0.4, 1, 0.4)
@@ -1249,7 +1343,6 @@ local function CreateESPForPlayer(plr)
 
 		local function AddBox(part)
 			local box = Instance.new("BoxHandleAdornment", espBoxFolder)
-			box.Name = ""
 			box.Adornee = part
 			box.Size = part.Size
 			box.Color = BrickColor.new(1, 1, 1)
@@ -1434,7 +1527,6 @@ local function CreateESPForPlayer(plr)
 			-- Missing head
 			if head == nil then
 				FindHead()
-				DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 				
 				if head == nil then
 					StopProcessLoop()
@@ -1442,8 +1534,6 @@ local function CreateESPForPlayer(plr)
 				end
 			elseif not head:IsDescendantOf(workspace) then -- Probably died or left
 				StopProcessLoop()
-				DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
-				
 				return
 			end
 			
@@ -1453,7 +1543,6 @@ local function CreateESPForPlayer(plr)
 			-- Tag is not visible because camera is not facing player
 			if not onScreen then
 				tag.Visible = false
-				DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 				return
 			end
 			
@@ -1464,13 +1553,11 @@ local function CreateESPForPlayer(plr)
 				if switch_Use_Display_Name.On() then
 					if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
 						tag.Visible = false
-						DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 						return
 					end
 				else
 					if not string.find(string.lower(plr.Name), string.lower(keyword)) then
 						tag.Visible = false
-						DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 						return
 					end
 				end
@@ -1517,8 +1604,6 @@ local function CreateESPForPlayer(plr)
 			else
 				tag.Visible = false
 			end
-			
-			DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE + (tick() - processStartTime)
 		end
 		
 		-- Wrapper
@@ -1561,13 +1646,10 @@ end)
 table.insert(ALL_CONNECTIONS, plrAdded)
 
 -- Process is called every frame
-local function Process(deltaTime)
-	local processLoopStart = tick()
-	
+
+local function Process_ESP(deltaTime)
 	local success, err = pcall(function()
 		local camera = workspace.CurrentCamera
-		
-		-- Find character and humanoid
 		local character = LOCAL_PLAYER.Character
 		local humanoid = nil
 
@@ -1624,15 +1706,6 @@ local function Process(deltaTime)
 			for i, v in pairs(missingPlayers) do
 				CreateESPForPlayer(v)
 			end
-		end
-		
-		-- Value should match the number of players not loaded in
-		local missingTagCount = #PLAYER_SERVICE:GetPlayers() - #espTagFolder:GetChildren() - 1
-		
-		if switch_ESP_Enabled.On() then
-			output_ESP.EditLabel(2, "Missing Tags: " .. missingTagCount)
-		else
-			output_ESP.EditLabel(2, "Missing Tags: N/A")
 		end
 		
 		-- Freecam
@@ -1723,97 +1796,90 @@ local function Process(deltaTime)
 			camera.CameraType = Enum.CameraType.Scriptable
 			camera.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)
 		end
+	end)
+	
+	if not success then
+		-- Debug
+		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+		DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+	end
+end
 
+local function Process_Teleport(deltaTime)
+	local success, err = pcall(function()
+		local camera = workspace.CurrentCamera
+		local character = LOCAL_PLAYER.Character
+		
+		if character == nil then
+			return
+		end
+		
 		-- Teleport
 		if button_Teleport_To_Camera.GetPressCount() > 0 then
 			character:SetPrimaryPartCFrame(CFrame.new(camera.CFrame.Position)) -- Removes rotation
 		end
-		
-		if button_Teleport_To_Player.GetPressCount() > 0 then
+
+		if inputAndButton_Teleport_To_Player.GetPressCount() > 0 then
 			local success, err = pcall(function()
-				character:SetPrimaryPartCFrame(MatchPlayerWithString(input_Teleport_To_Player_Target.GetInputText()).Character:GetPrimaryPartCFrame())
+				character:SetPrimaryPartCFrame(MatchPlayerWithString(inputAndButton_Teleport_To_Player.GetInputText()).Character:GetPrimaryPartCFrame())
 			end)
-			
+
 			if not success then
 				-- Debug
 				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
 				DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
 			end
 		end
-		
-		for i = 1, button_Teleport_Forward.GetPressCount() do
+
+		for i = 1, inputAndButton_Teleport_Forward.GetPressCount() do
 			local success, err = pcall(function()
 				local root = character:FindFirstChild("HumanoidRootPart")
-				
+
 				if not root then
 					root = character.PrimaryPart
-					
+
 					if not root then
 						root = character:FindFirstChildOfClass("BasePart")
 					end
 				end
-				
+
 				if root then
-					root.CFrame = root.CFrame * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber())
+					root.CFrame = root.CFrame * CFrame.new(0, 0, -inputAndButton_Teleport_Forward.GetInputTextAsNumber())
 				end
 			end)
-			
+
 			if not success then
 				-- Debug
 				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
 				DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
 			end
 		end
+	end)
+	
+	if not success then
+		-- Debug
+		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+		DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+	end
+end
+
+local function Process_Aimbot(deltaTime)
+	local success, err = pcall(function()
+		local camera = workspace.CurrentCamera
+		local character = LOCAL_PLAYER.Character
 		
-		-- Noclip
-		if switch_Noclip_Enabled.On() then
-			humanoid:ChangeState(11)
+		-- Crosshair
+		if switch_Show_Crosshair.On() then
+			crosshairFrame.Visible = true
+		else
+			crosshairFrame.Visible = false
 		end
-		
-		-- Sit
-		if button_Sit.GetPressCount() > 0 then
-			if humanoid then
-				humanoid.Sit = true
-			end
-		end
-		
-		-- Fix Camera
-		if button_Fix_Camera.GetPressCount() > 0 then
-			camera.CameraType = Enum.CameraType.Custom
-			
-			if humanoid then
-				camera.CameraSubject = humanoid
-			end
-		end
-		
-		-- Load World At Camera
-		if button_Load_World_At_Camera.GetPressCount() > 0 then
-			LOCAL_PLAYER:RequestStreamAroundAsync(camera.CFrame.Position)
-		end
-		
-		-- Core Gui
-		if dualButtons_ResetCharacter.GetLeftButtonPressCount() > 0  then STARTER_GUI:SetCore("ResetButtonCallback", true) end
-		if dualButtons_ResetCharacter.GetRightButtonPressCount() > 0 then STARTER_GUI:SetCore("ResetButtonCallback", false) end
-		
-		if dualButtons_All.GetLeftButtonPressCount() > 0         then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.All, true) end
-		if dualButtons_All.GetRightButtonPressCount() > 0        then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end
-		
-		--if dualButtons_PlayerList.GetLeftButtonPressCount() > 0  then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, true) end
-		--if dualButtons_PlayerList.GetRightButtonPressCount() > 0 then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false) end
-		
-		--if dualButtons_Health.GetLeftButtonPressCount() > 0      then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Health, true) end
-		--if dualButtons_Health.GetRightButtonPressCount() > 0     then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false) end
-		
-		if dualButtons_Backpack.GetLeftButtonPressCount() > 0    then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true) end
-		if dualButtons_Backpack.GetRightButtonPressCount() > 0   then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end
-		
-		if dualButtons_Chat.GetLeftButtonPressCount() > 0        then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true) end
-		if dualButtons_Chat.GetRightButtonPressCount() > 0       then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false) end
-		
-		--if dualButtons_EmotesMenu.GetLeftButtonPressCount() > 0  then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, true) end
-		--if dualButtons_EmotesMenu.GetRightButtonPressCount() > 0 then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, false) end
 		
 		-- Aimbot
+		if character == nil then
+			return
+		end
+		
 		if INPUT_SERVICE:IsKeyDown(keybind_Aimbot_Engage.GetKeyCode()) and switch_Aimbot_Enabled.On() then
 			if aimbotTarget == nil then
 				-- Aimbot
@@ -1833,30 +1899,30 @@ local function Process(deltaTime)
 						if v.Team == LOCAL_PLAYER.Team and switch_Aimbot_Team_Check.On() then
 							checked = false
 						end
-						
+
 						do -- Check if on screen
 							local pos, onScreen = camera:WorldToScreenPoint(v.Character.Head.Position)
-							
+
 							if not onScreen then
 								checked = false
 							end
 						end
-						
+
 						if switch_Aimbot_Wall_Check.On() then
 							local me = character:GetPrimaryPartCFrame().Position
 							local them = v.Character.Head.Position
-							
+
 							local rayDirection = (them - me).Unit * (me - them).Magnitude
-							
+
 							local raycastParams = RaycastParams.new()
 							raycastParams.FilterDescendantsInstances = { v.Character, character }
 							raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-							
+
 							local raycastResult = workspace:Raycast(me, rayDirection, raycastParams)
-							
+
 							if raycastResult then
 								local part = raycastResult.Instance
-								
+
 								if part then
 									checked = false
 								end
@@ -1887,38 +1953,147 @@ local function Process(deltaTime)
 		else
 			aimbotTarget = nil
 		end
-		
-		-- Crosshair
-		if switch_Show_Crosshair.On() then
-			crosshairFrame.Visible = true
-		else
-			crosshairFrame.Visible = false
+	end)
+
+	if not success then
+		-- Debug
+		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+		DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+	end
+end
+
+local function Process_Character(deltaTime)
+	local success, err = pcall(function()
+		local character = LOCAL_PLAYER.Character
+		local humanoid = nil
+
+		if character then
+			humanoid = character:FindFirstChild("Humanoid")
+			
+			if humanoid then
+				-- Slope Angle
+				if humanoid then
+					if switch_Force_Slope_Angle.On() then
+						humanoid.MaxSlopeAngle = inputAndButton_Slope_Angle.GetInputTextAsNumber()
+					end
+
+					if inputAndButton_Slope_Angle.GetPressCount() > 0 then
+						humanoid.MaxSlopeAngle = inputAndButton_Slope_Angle.GetInputTextAsNumber()
+					end
+				end
+				
+				-- Noclip
+				if switch_Noclip_Enabled.On() then
+					humanoid:ChangeState(11)
+				end
+
+				-- Sit
+				if button_Sit.GetPressCount() > 0 then
+					humanoid.Sit = true
+				end
+			end
+		end
+	end)
+
+	if not success then
+		-- Debug
+		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+		DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+	end
+end
+
+local function Process_Camera(deltaTime)
+	local success, err = pcall(function()
+		local camera = workspace.CurrentCamera
+
+		-- Find character and humanoid
+		local character = LOCAL_PLAYER.Character
+		local humanoid = nil
+
+		if character then
+			humanoid = character:FindFirstChild("Humanoid")
 		end
 		
-		-- Slope Angle
-		if humanoid then
-			if switch_Force_Slope_Angle.On() then
-				humanoid.MaxSlopeAngle = input_Slope_Angle.GetInputTextAsNumber()
+		-- Camera
+		if inputAndButton_CameraMinZoomDistance.GetPressCount() > 0 then
+			LOCAL_PLAYER.CameraMinZoomDistance = inputAndButton_CameraMinZoomDistance.GetInputTextAsNumber(0.5)
+		end
+
+		if inputAndButton_CameraMaxZoomDistance.GetPressCount() > 0 then
+			LOCAL_PLAYER.CameraMaxZoomDistance = inputAndButton_CameraMaxZoomDistance.GetInputTextAsNumber(128)
+		end
+
+		if button_Fix_Camera.GetPressCount() > 0 then
+			camera.CameraType = Enum.CameraType.Custom
+
+			if humanoid then
+				camera.CameraSubject = humanoid
 			end
-			
-			if button_Set_Slope_Angle.GetPressCount() > 0 then
-				humanoid.MaxSlopeAngle = input_Slope_Angle.GetInputTextAsNumber()
-			end
+		end
+
+		if button_Load_World_At_Camera.GetPressCount() > 0 then
+			LOCAL_PLAYER:RequestStreamAroundAsync(camera.CFrame.Position)
+		end
+	end)
+
+	if not success then
+		-- Debug
+		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+		DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+	end
+end
+
+local function Process_CoreGui(deltaTime)
+	local success, err = pcall(function()
+		-- Core Gui
+		if dualButtons_ResetCharacter.GetLeftButtonPressCount() > 0 then STARTER_GUI:SetCore("ResetButtonCallback", true) end
+		if dualButtons_ResetCharacter.GetRightButtonPressCount() > 0 then STARTER_GUI:SetCore("ResetButtonCallback", false) end
+
+		if dualButtons_All.GetLeftButtonPressCount() > 0 then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.All, true) end
+		if dualButtons_All.GetRightButtonPressCount() > 0 then STARTER_GUI:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end
+	end)
+
+	if not success then
+		-- Debug
+		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
+		DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+	end
+end
+
+local function Process_Information(deltaTime)
+	local success, err = pcall(function()
+		local camera = workspace.CurrentCamera
+		
+		-- Value should match the number of players not loaded in
+		local missingTagCount = #PLAYER_SERVICE:GetPlayers() - #espTagFolder:GetChildren() - 1
+
+		if switch_ESP_Enabled.On() then
+			output_ESP.EditLabel(2, "Missing Tags: " .. missingTagCount)
+		else
+			output_ESP.EditLabel(2, "Missing Tags: N/A")
+		end
+		
+		-- Find character and humanoid
+		local character = LOCAL_PLAYER.Character
+		local humanoid = nil
+
+		if character then
+			humanoid = character:FindFirstChild("Humanoid")
 		end
 		
 		-- Information
 		local camPosString = RoundNumber(camera.CFrame.Position.X, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Y, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Z, 2)
 		local camRotString = nil
-		
+
 		do
 			local x, y, z = camera.CFrame:ToOrientation()
 			x = math.deg(x)
 			y = math.deg(y)
 			z = math.deg(z)
-			
+
 			camRotString = RoundNumber(x, 2) .. ", " .. RoundNumber(y, 2) .. ", " .. RoundNumber(z, 2)
 		end
-		
+
 		local charPosString = "N/A"
 		local charRotationString = "N/A"
 		local charVelocityPropertyString = "N/A"
@@ -1926,15 +2101,15 @@ local function Process(deltaTime)
 
 		if character then
 			local primary = character:FindFirstChild("HumanoidRootPart")
-			
+
 			if not primary then
 				primary = character.PrimaryPart
-				
+
 				if not primary then
 					primary = character:FindFirstChildOfClass("BasePart")
 				end
 			end
-			
+
 			if primary then
 				if primary:IsA("BasePart") then
 					local rx, ry, rz = primary.Orientation.X, primary.Orientation.Y, primary.Orientation.Z
@@ -1942,32 +2117,32 @@ local function Process(deltaTime)
 					charPosString = RoundNumber(primary.Position.X, 2) .. ", " .. RoundNumber(primary.Position.Y, 2) .. ", " .. RoundNumber(primary.Position.Z, 2)
 					charRotationString = RoundNumber(rx, 2) .. ", " .. RoundNumber(ry, 2) .. ", " .. RoundNumber(rz, 2)
 					charVelocityPropertyString = RoundNumber(primary.Velocity.Magnitude, 2) .. " sps"
-					
+
 					-- Real
 					local realVel = (primary.Position - lastPrimaryPartPosition) / deltaTime
 					local average = 0
-					
+
 					local length = characterRealVelocityHistoryLength
-					
+
 					-- Push new value
 					table.insert(characterRealVelocityHistory, 1, realVel.Magnitude)
 					table.remove(characterRealVelocityHistory, #characterRealVelocityHistory)
-					
+
 					-- Find average
 					for i = 1, length do
 						average = average + characterRealVelocityHistory[i]
 					end
-					
+
 					average = average / length
-					
+
 					lastPrimaryPartPosition = primary.Position
-					
+
 					-- String
 					charVelocityRealString = RoundNumber(average, 2) .. " sps (now " .. RoundNumber(realVel.Magnitude, 2) .. ")"
 				end
 			end
 		end
-		
+
 		do -- Count how many players are not loaded in
 			if tick() - lastTickCheckLoadedPlayers > 1 then -- Check only every second
 				lastTickCheckLoadedPlayers = tick()
@@ -1979,7 +2154,7 @@ local function Process(deltaTime)
 
 					if not v.Character then
 						isLoaded = false
-					elseif not v.Character:FindFirstChild("Head") then
+					elseif not v.Character:FindFirstChild("HumanoidRootPart") then
 						isLoaded = false
 					end
 
@@ -1995,7 +2170,9 @@ local function Process(deltaTime)
 		output_Camera.EditLabel(1, "Camera Position: " .. camPosString)
 		output_Camera.EditLabel(2, "Camera Rotation: " .. camRotString)
 		output_Camera.EditLabel(3, "FOV: " .. camera.FieldOfView)
-		
+		output_Camera.EditLabel(4, "Min Zoom Distance: " .. LOCAL_PLAYER.CameraMinZoomDistance)
+		output_Camera.EditLabel(5, "Max Zoom Distance: " .. LOCAL_PLAYER.CameraMaxZoomDistance)
+
 		output_Character.EditLabel(1, "Character Position: " .. charPosString)
 		output_Character.EditLabel(2, "Character Rotation: " .. charRotationString)
 		output_Character.EditLabel(3, "Character Velocity Property: " .. charVelocityPropertyString)
@@ -2006,42 +2183,38 @@ local function Process(deltaTime)
 
 		if humanoid then
 			output_Character.EditLabel(5, "Walk Speed: " .. humanoid.WalkSpeed)
-			
+
 			if humanoid.UseJumpPower then
 				output_Character.EditLabel(6, "Jump Power: " .. humanoid.JumpPower)
 			else
 				output_Character.EditLabel(6, "Jump Height: " .. humanoid.JumpHeight)
 			end
-			
+
 			output_Character.EditLabel(7, "Max Slope Angle: " .. humanoid.MaxSlopeAngle)
 			output_Character.EditLabel(8, "Health: " .. RoundNumber(humanoid.Health, 3) .. "/" .. RoundNumber(humanoid.MaxHealth, 3))
 		else
 			output_Character.EditLabel(5, "Walk Speed: N/A")
 			output_Character.EditLabel(6, "Jump Power: N/A")
-			output_Character.EditLabel(7, "Health: N/A")
+			output_Character.EditLabel(7, "Max Slope Angle: N/A")
+			output_Character.EditLabel(8, "Health: N/A")
 		end
-		
+
 		-- Debug
 		output_Debug.EditLabel(1, "Error Count: " .. DEBUG_ERROR_COUNT)
-		output_Debug.EditLabel(2, "Main Loop: " .. RoundNumber(DEBUG_MAIN_LOOP_TIME, 10) .. "s (1/" .. RoundNumber(1 / DEBUG_MAIN_LOOP_TIME, 2) .. ")")
-		
-		local average = DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE / (missingTagCount + 1)
-		DEBUG_TAG_PROCESS_LOOP_TIME_AVERAGE = 0
-		output_Debug.EditLabel(3, "All Tag Loops Average: " .. RoundNumber(average, 10) .. "s (1/" .. RoundNumber(1 / average, 2) .. ")")
-		
+
 		if DEBUG_ERROR_COUNT ~= LAST_DEBUG_ERROR_COUNT then
 			local msg = DEBUG_LAST_ERROR_MESSAGE
-			
+
 			if tostring(msg) == "nil" then
 				DEBUG_LAST_ERROR_MESSAGE = "nil error message"
 			end
-			
+
 			local labelCount = output_Debug.GetLabelCount()
 			local glyphAdvance = 7
 			local maxGlyphs = math.floor(output_Debug.GetSingleLabelAbsoluteSize().X / glyphAdvance)
 			local remainingText = "Last Error: " .. tostring(msg)
 			remainingText = remainingText:gsub("\n", "")
-			
+
 			for i = 4, labelCount do
 				output_Debug.EditLabel(i, "")
 			end
@@ -2058,18 +2231,63 @@ local function Process(deltaTime)
 				end
 			end
 		end
-		
+
 		LAST_DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT
 	end)
-	
+
 	if not success then
 		-- Debug
 		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
 		DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
 	end
-	
-	DEBUG_MAIN_LOOP_TIME = tick() - processLoopStart
 end
+
+-- Mouse click
+
+local mouseButton1DownConnection = MOUSE.Button1Down:Connect(function()
+	if INPUT_SERVICE:IsKeyDown(keybind_KeybindClick_Teleport.GetKeyCode()) then
+		if switch_KeybindClick_Teleport.On() then
+			pcall(function()
+				local character = LOCAL_PLAYER.Character
+
+				if character then
+					local depth = 0
+					
+					local params = RaycastParams.new()
+					params.FilterType = Enum.RaycastFilterType.Blacklist
+					params.FilterDescendantsInstances = { character }
+					
+					local function PerformRay(origin, direction)
+						if depth > 100 then
+							return
+						end
+						
+						local result = workspace:Raycast(origin, direction.Unit * 15000, params)
+
+						if result then
+							if result.Instance.Transparency == 1 then
+								if switch_KeybindClick_Ignore_Transparent_Parents.On() then
+									PerformRay(result.Position + (direction.Unit * 0.001), direction)
+									depth = depth + 1
+									
+									return
+								end
+							end
+							
+							--character:SetPrimaryPartCFrame(CFrame.new(result.Position + result.Normal * 4.5))
+							character:SetPrimaryPartCFrame(CFrame.new(result.Position + Vector3.new(0, 4.5, 0)))
+						else
+							return
+						end
+					end
+					
+					local ray = workspace.CurrentCamera:ScreenPointToRay(MOUSE.X, MOUSE.Y)
+					PerformRay(ray.Origin, ray.Direction)
+				end
+			end)
+		end
+	end
+end)
 
 -- Input began
 
@@ -2099,7 +2317,7 @@ local inputConnection = INPUT_SERVICE.InputBegan:Connect(function(input, gamePro
 					end
 
 					if root then
-						root.CFrame = root.CFrame * CFrame.new(0, 0, -input_Teleport_Forward_Studs.GetInputTextAsNumber())
+						root.CFrame = root.CFrame * CFrame.new(0, 0, -inputAndButton_Teleport_Forward.GetInputTextAsNumber())
 					end
 				end)
 				
@@ -2115,29 +2333,46 @@ local inputConnection = INPUT_SERVICE.InputBegan:Connect(function(input, gamePro
 	end
 end)
 
+table.insert(ALL_CONNECTIONS, mouseButton1DownConnection)
 table.insert(ALL_CONNECTIONS, inputConnection)
 
 -- Bind process function to render step. Priority set to last so we can have control over everything (maybe)
-local uniqueId = game:GetService("HttpService"):GenerateGUID(false)
-RUN_SERVICE:BindToRenderStep(uniqueId, Enum.RenderPriority.Camera.Value, Process)
+local uniqueId_ESP = game:GetService("HttpService"):GenerateGUID(false)
+local uniqueId_Teleport = game:GetService("HttpService"):GenerateGUID(false)
+local uniqueId_Aimbot = game:GetService("HttpService"):GenerateGUID(false)
+local uniqueId_Character = game:GetService("HttpService"):GenerateGUID(false)
+local uniqueId_Camera = game:GetService("HttpService"):GenerateGUID(false)
+local uniqueId_CoreGui = game:GetService("HttpService"):GenerateGUID(false)
+local uniqueId_Information = game:GetService("HttpService"):GenerateGUID(false)
+
+RUN_SERVICE:BindToRenderStep(uniqueId_Camera, Enum.RenderPriority.Camera.Value, Process_Camera)
+RUN_SERVICE:BindToRenderStep(uniqueId_ESP, Enum.RenderPriority.Camera.Value + 1, Process_ESP)
+RUN_SERVICE:BindToRenderStep(uniqueId_Aimbot, Enum.RenderPriority.Camera.Value + 2, Process_Aimbot)
+RUN_SERVICE:BindToRenderStep(uniqueId_Teleport, Enum.RenderPriority.Camera.Value + 3, Process_Teleport)
+RUN_SERVICE:BindToRenderStep(uniqueId_Character, Enum.RenderPriority.Camera.Value + 4, Process_Character)
+RUN_SERVICE:BindToRenderStep(uniqueId_CoreGui, Enum.RenderPriority.Camera.Value + 5, Process_CoreGui)
+RUN_SERVICE:BindToRenderStep(uniqueId_Information, Enum.RenderPriority.Camera.Value + 6, Process_Information)
 
 -- Wait until window is closed
 repeat RUN_SERVICE.RenderStepped:Wait() until window.IsActive() == false
 
-RUN_SERVICE:UnbindFromRenderStep(uniqueId) -- Unbind loop
+-- Unbind loops
+RUN_SERVICE:UnbindFromRenderStep(uniqueId_ESP)
+RUN_SERVICE:UnbindFromRenderStep(uniqueId_Teleport)
+RUN_SERVICE:UnbindFromRenderStep(uniqueId_Aimbot)
+RUN_SERVICE:UnbindFromRenderStep(uniqueId_Character)
+RUN_SERVICE:UnbindFromRenderStep(uniqueId_Camera)
+RUN_SERVICE:UnbindFromRenderStep(uniqueId_CoreGui)
+RUN_SERVICE:UnbindFromRenderStep(uniqueId_Information)
+
+-- Cleanup
 applicationGui:Destroy() -- Destroy GUI
 SCRIPT_ENABLED = false
 
 for _, v in pairs(ALL_CONNECTIONS) do
-	local success, err = pcall(function()
-		if v ~= nil then
-			v:Disconnect()
-		end
+	pcall(function()
+		v:Disconnect()
 	end)
-	
-	-- Debug
-	DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
-	DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
 end
 
 if switch_Freecam_Enabled.On() then
