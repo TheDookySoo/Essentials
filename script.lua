@@ -1821,7 +1821,8 @@ local function Process_Teleport(deltaTime)
 
 		if inputAndButton_Teleport_To_Player.GetPressCount() > 0 then
 			local success, err = pcall(function()
-				character:SetPrimaryPartCFrame(MatchPlayerWithString(inputAndButton_Teleport_To_Player.GetInputText()).Character:GetPrimaryPartCFrame())
+				local target = MatchPlayerWithString(inputAndButton_Teleport_To_Player.GetInputText()).Character:GetPrimaryPartCFrame()
+				character:SetPrimaryPartCFrame(target)
 			end)
 
 			if not success then
