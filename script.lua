@@ -1311,36 +1311,44 @@ local function CreateESPForPlayer(plr)
 		
 		FindHead()
 		
-		local tag = Instance.new("TextLabel", espTagFolder)
-		tag.Name = plr.Name
+		local tagGui = Instance.new("BillboardGui", espTagFolder)
+		tagGui.Name = plr.Name
+		tagGui.Size = UDim2.new(0, 10000, 0, 50)
+		tagGui.LightInfluence = 0
+		tagGui.AlwaysOnTop = true
+		tagGui.Adornee = head
+		tagGui.StudsOffsetWorldSpace = Vector3.new(0, 1.4, 0)
+		
+		local tag = Instance.new("TextLabel", tagGui)
+		tag.Size = UDim2.new(1, 0, 1, 0)
 		tag.Font = Enum.Font.GothamSemibold
 		tag.BackgroundTransparency = 1
-		tag.AnchorPoint = Vector2.new(0.5, 1)
+		tag.Active = false
 		tag.TextSize = 11
 
-		local item = Instance.new("TextLabel", tag)
+		local item = Instance.new("TextLabel", tagGui)
 		item.Text = ""
 		item.TextSize = 10
 		item.TextColor3 = Color3.new(0.4, 1, 0.4)
-		item.Position = UDim2.new(0.5, 0, 0, -11)
+		item.Position = UDim2.new(0, 0, 0, -11)
+		item.Size = UDim2.new(1, 0, 1, 0)
 		item.Font = Enum.Font.GothamSemibold
-		item.AnchorPoint = Vector2.new(0.5, 0)
 		item.TextStrokeTransparency = 0.9
 		item.BackgroundTransparency = 1
 		item.Visible = false
 
 		if LOCAL_PLAYER:IsFriendsWith(plr.UserId) then -- Label as friend
-			local friend = Instance.new("TextLabel", tag)
+			local friend = Instance.new("TextLabel", tagGui)
 			friend.Text = "FRIEND"
 			friend.TextSize = 8
 			friend.TextColor3 = Color3.new(0.4, 1, 0.4)
-			friend.Position = UDim2.new(0.5, 0, 0, -10)
+			friend.Position = UDim2.new(0, 0, 0, -10)
+			friend.Size = UDim2.new(1, 0, 1, 0)
 			friend.Font = Enum.Font.GothamSemibold
-			friend.AnchorPoint = Vector2.new(0.5, 0)
 			friend.TextStrokeTransparency = 0.9
 			friend.BackgroundTransparency = 1
 
-			item.Position = UDim2.new(0.5, 0, 0, -18)
+			item.Position = UDim2.new(0, 0, 0, -19)
 		end
 
 		-- Boxes
@@ -1438,8 +1446,8 @@ local function CreateESPForPlayer(plr)
 		local function StopProcessLoop()
 			RUN_SERVICE:UnbindFromRenderStep(uniqueId)
 
-			if tag ~= nil then
-				tag:Destroy()
+			if tagGui ~= nil then
+				tagGui:Destroy()
 			end
 
 			espList[plr.Name] = false
@@ -1461,7 +1469,7 @@ local function CreateESPForPlayer(plr)
 		
 		-- Tag update stuff
 		
-		local function UpdateTag(root, humanoid)
+		local function UpdateTag(root, humanoid, cameraCFrame)
 			local tagText = ""
 
 			if switch_Use_Display_Name.On() then
@@ -1495,7 +1503,7 @@ local function CreateESPForPlayer(plr)
 
 			if character then
 				if switch_Show_Distance.On() and root then
-					local distance = (workspace.CurrentCamera.CFrame.Position - root.Position).Magnitude
+					local distance = plr:DistanceFromCharacter(cameraCFrame.Position)
 
 					tagText = tagText .. "[" .. math.floor(distance + 0.5) .. " studs]"
 				end
@@ -1520,7 +1528,7 @@ local function CreateESPForPlayer(plr)
 			end
 				
 			-- If tag is missing then stop
-			if tag.Parent ~= espTagFolder then
+			if tagGui.Parent ~= espTagFolder then
 				StopProcessLoop()
 			end
 
@@ -1539,15 +1547,6 @@ local function CreateESPForPlayer(plr)
 				end
 			elseif not head:IsDescendantOf(workspace) then -- Probably died or left
 				StopProcessLoop()
-				return
-			end
-			
-			-- Check if we can continue
-			local tagPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position + Vector3.new(0, 1.4, 0))
-
-			-- Tag is not visible because camera is not facing player
-			if not onScreen then
-				tag.Visible = false
 				return
 			end
 			
@@ -1601,10 +1600,12 @@ local function CreateESPForPlayer(plr)
 			end
 
 			-- Tag
+			local cameraCFrame = workspace.CurrentCamera.CFrame
+			
 			if switch_Show_Tags.On() then
-				local tagText = UpdateTag(root, humanoid)
+				local tagText = UpdateTag(root, humanoid, cameraCFrame)
 				
-				tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - guiVerticalInset)
+				tagGui.Adornee = head or root
 				tag.Visible = true
 			else
 				tag.Visible = false
