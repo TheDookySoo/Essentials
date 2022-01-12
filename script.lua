@@ -24,6 +24,9 @@ THEME.Element_Left_Padding = 180
 THEME.Element_Title_Left_Padding = 10
 THEME.Element_Title_Text_Size = 13
 
+THEME.Close_Button_Color = Color3.fromRGB(255, 255, 255)
+THEME.Mini_Button_Color = Color3.fromRGB(255, 255, 255)
+
 THEME.Folder_Handle_Height = 17
 THEME.Folder_Title_Left_Padding = 20
 THEME.Folder_Collapse_Left_Padding = 10
@@ -869,6 +872,7 @@ local function CreateWindow(parent, title, size)
 	-- Buttons
 	local closeButton = Instance.new("ImageButton", background)
 	closeButton.Image = "rbxassetid://4389749368"
+	closeButton.ImageColor3 = THEME.Close_Button_Color
 	closeButton.Size = UDim2.new(0, 12, 0, 12)
 	closeButton.BackgroundTransparency = 1
 	closeButton.AutoButtonColor = false
@@ -877,6 +881,7 @@ local function CreateWindow(parent, title, size)
 
 	local miniButton = Instance.new("ImageButton", background)
 	miniButton.Image = "rbxassetid://4530358017"
+	miniButton.ImageColor3 = THEME.Mini_Button_Color
 	miniButton.Size = UDim2.new(0, 12, 0, 12)
 	miniButton.BackgroundTransparency = 1
 	miniButton.AutoButtonColor = false
@@ -2197,7 +2202,7 @@ local function Process_Information(deltaTime)
 
 					if not v.Character then
 						isLoaded = false
-					elseif not v.Character:FindFirstChild("HumanoidRootPart") then
+					elseif not v.Character:FindFirstChild("HumanoidRootPart") and not v.Character:FindFirstChild("Head") then
 						isLoaded = false
 					end
 
