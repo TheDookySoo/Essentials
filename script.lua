@@ -91,11 +91,11 @@ end
 -- Core Gui Elements
 local function CreateGui()
 	local gui = Instance.new("ScreenGui")
-	
+
 	pcall(function()
 		syn.protect_gui(gui)
 	end)
-	
+
 	gui.Parent = APPLICATION_GUI_PARENT
 	gui.ResetOnSpawn = false
 
@@ -174,7 +174,7 @@ local function CreateScrollingFrame(parent, size, position, anchorPoint, element
 
 			table.insert(ALL_CONNECTIONS, c2)
 		end)
-		
+
 		if not success then
 			-- Debug
 			DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
@@ -534,7 +534,7 @@ local function CreateInput(parent, title, default)
 
 	function input.GetInputTextAsNumber(default)
 		local d = default == nil and 0 or default
-		
+
 		local n = tonumber(inputTextBox.Text)
 
 		return n == nil and d or n
@@ -806,7 +806,7 @@ local function CreateOutput(parent, labelCount)
 	function output.GetLabel(index)
 		return labels[index]
 	end
-	
+
 	function output.GetSingleLabelAbsoluteSize()
 		if labels[1] then
 			return labels[1].AbsoluteSize
@@ -814,7 +814,7 @@ local function CreateOutput(parent, labelCount)
 			return 0
 		end
 	end
-	
+
 	function output.GetLabelCount()
 		return labelCount
 	end
@@ -1032,7 +1032,7 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding, collapse
 	-- Collapse
 	local function Update()
 		collapse.Rotation = isCollapsed and -180 or -90
-		
+
 		if isCollapsed then
 			frame.Size = UDim2.new(1, 0, 0, THEME.Folder_Handle_Height)
 		else
@@ -1045,7 +1045,7 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding, collapse
 					v.Visible = not isCollapsed
 				end
 			end)
-			
+
 			if not success then
 				-- Debug
 				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
@@ -1067,7 +1067,7 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding, collapse
 					c.Visible = not isCollapsed
 				end
 			end)
-			
+
 			if not success then
 				-- Debug
 				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
@@ -1080,7 +1080,7 @@ local function CreateFolder(scrollingFrame, folderName, elementPadding, collapse
 	table.insert(ALL_CONNECTIONS, c2)
 	table.insert(ALL_CONNECTIONS, c3)
 	table.insert(ALL_CONNECTIONS, c4)
-	
+
 	task.spawn(function()
 		RUN_SERVICE.RenderStepped:Wait()
 		isCollapsed = collapsedDefault
@@ -1122,15 +1122,16 @@ local keybind_Freecam_Down = CreateKeybind(folder_Freecam_Settings, "Freecam Dow
 
 -- Teleport
 local folder_Teleport = CreateFolder(elementsContainer, "Teleport", nil, false)
-local button_Teleport_To_Camera = CreateButton(folder_Teleport, "Teleport To Camera", "Teleport")
-local inputAndButton_Teleport_To_Player = CreateInputAndButton(folder_Teleport, "Player Name", "", "Teleport")
+local button_Teleport_To_Camera = CreateButton(folder_Teleport, "TP To Camera", "Teleport")
+local inputAndButton_Teleport_To_Player = CreateInputAndButton(folder_Teleport, "TP To Player", "", "Teleport")
 local inputAndButton_Teleport_Forward = CreateInputAndButton(folder_Teleport, "TP Forward Studs", "5", "Teleport")
+local inputAndButton_Teleport_Vertical = CreateInputAndButton(folder_Teleport, "TP Vertical Studs", "5", "Teleport")
 CreatePadding(folder_Teleport, 4)
-local switch_Teleport_Forward_Double_Tap = CreateSwitch(folder_Teleport, "TP Forward Double Tap", false)
+local switch_Teleport_Forward_Double_Tap = CreateSwitch(folder_Teleport, "Double Tap TP Forward", false)
 local keybind_Teleport_Forward_Double_Tap = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.T)
 local input_Teleport_Forward_Double_Tap_Time_Range = CreateInput(folder_Teleport, "Valid Time Range [s]", "0.2")
 CreatePadding(folder_Teleport, 4)
-local switch_KeybindClick_Teleport = CreateSwitch(folder_Teleport, "TP Keybind + Click TP")
+local switch_KeybindClick_Teleport = CreateSwitch(folder_Teleport, "Keybind + Click TP")
 local switch_KeybindClick_Ignore_Transparent_Parents = CreateSwitch(folder_Teleport, "Ignore Transparent Parts", true)
 local keybind_KeybindClick_Teleport = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.LeftControl)
 
@@ -1216,12 +1217,26 @@ local function MatchPlayerWithString(str)
 			return v
 		end
 	end
-	
+
 	for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
 		if string.find(string.lower(v.DisplayName), string.lower(str)) then
 			return v
 		end
 	end
+end
+
+local function FindRootPart(character)
+	local root = character:FindFirstChild("HumanoidRootPart")
+
+	if not root then
+		root = character.PrimaryPart
+
+		if not root then
+			root = character:FindFirstChildOfClass("BasePart")
+		end
+	end
+
+	return root
 end
 
 -- Some variables
@@ -1237,8 +1252,6 @@ local characterRealVelocityHistoryLength = 50
 local characterRealVelocityHistory = table.create(characterRealVelocityHistoryLength, 0)
 
 local teleportForwardKeybindLastPressed = 0
-
-local noclipPartsCanCollideOn = {}
 
 -- Freecam scroll
 local inputChangedConnection = INPUT_SERVICE.InputChanged:Connect(function(input, gameProcessed)
@@ -1263,37 +1276,38 @@ local espList = {}
 local function CreateESPForPlayer(plr)
 	if switch_ESP_Enabled.On() == false then return end
 	if espTagFolder:FindFirstChild(plr.Name) then return end
-	
+
 	if espList[plr.Name] then return end -- Player is already tracked
 	espList[plr.Name] = true -- Record player
-	
+
 	task.spawn(function()
 		do
 			local steps = 0
-			
+
 			repeat
 				steps = steps + 1
 				task.wait()
 			until plr.Character or steps > 400
-			
+
 			if plr.Character == nil or steps > 400 then
 				espList[plr.Name] = false
 				return
 			end
 		end
-		
+
 		local character = plr.Character
-		
+
 		-- Keep track of connections
 		local eventConnections = {}
 
 		-- Tag
 		local head
+		local root
 		local isActuallyHead = true
-		
+
 		local function FindHead()
 			head = character:FindFirstChild("Head")
-			
+
 			if head == nil then
 				head = character.PrimaryPart
 				isActuallyHead = false
@@ -1308,7 +1322,7 @@ local function CreateESPForPlayer(plr)
 				end
 			end
 		end
-		
+
 		FindHead()
 		
 		local tag = Instance.new("TextLabel", espTagFolder)
@@ -1354,7 +1368,7 @@ local function CreateESPForPlayer(plr)
 			box.Transparency = input_ESP_Transparency.GetInputTextAsNumber()
 			box.ZIndex = 10
 			box.AlwaysOnTop = true
-			
+
 			local function CheckTransparency()
 				if part.Name ~= "HumanoidRootPart" then
 					if part.Transparency > 0.99 then -- 0.99 is the threshold (it's basically invisible)
@@ -1370,15 +1384,15 @@ local function CreateESPForPlayer(plr)
 					box:Destroy()
 				end
 			end)
-			
+
 			local c2 = part:GetPropertyChangedSignal("Transparency"):Connect(function()
 				CheckTransparency()
 			end)
-			
+
 			local c3 = part:GetPropertyChangedSignal("Size"):Connect(function()
 				box.Size = part.Size
 			end)
-			
+
 			CheckTransparency()
 
 			table.insert(boxes, box)
@@ -1392,7 +1406,7 @@ local function CreateESPForPlayer(plr)
 
 		local addedConnection = character.ChildAdded:Connect(function(c)
 			task.wait()
-			
+
 			if c:IsA("BasePart") and c.Name ~= "HumanoidRootPart" then
 				AddBox(c)
 			elseif c:IsA("Tool") then -- If player equips tool, then display that
@@ -1411,7 +1425,7 @@ local function CreateESPForPlayer(plr)
 				end
 			end
 		end)
-		
+
 		for _, v in pairs(character:GetChildren()) do
 			if v:IsA("BasePart") then
 				AddBox(v)
@@ -1430,11 +1444,11 @@ local function CreateESPForPlayer(plr)
 		table.insert(eventConnections, removedConnection)
 		table.insert(ALL_CONNECTIONS, addedConnection)
 		table.insert(ALL_CONNECTIONS, removedConnection)
-		
+
 		-- Loop
 		local currentCharacter = character
 		local uniqueId = game:GetService("HttpService"):GenerateGUID(false)
-		
+
 		local function StopProcessLoop()
 			RUN_SERVICE:UnbindFromRenderStep(uniqueId)
 
@@ -1458,9 +1472,9 @@ local function CreateESPForPlayer(plr)
 				end
 			end
 		end
-		
+
 		-- Tag update stuff
-		
+
 		local function UpdateTag(root, humanoid)
 			local tagText = ""
 
@@ -1489,7 +1503,7 @@ local function CreateESPForPlayer(plr)
 			if humanoid then
 				local health = math.floor(humanoid.Health + 0.5)
 				local maxHealth = math.floor(humanoid.MaxHealth + 0.5)
-				
+
 				tagText = tagText .. "[" .. health .. "/" .. maxHealth .. "]"
 			end
 
@@ -1500,7 +1514,6 @@ local function CreateESPForPlayer(plr)
 					tagText = tagText .. "[" .. math.floor(distance + 0.5) .. " studs]"
 				end
 			end
-
 
 			item.Visible = switch_Label_Item_In_Hand.On()
 
@@ -1513,12 +1526,10 @@ local function CreateESPForPlayer(plr)
 		end
 
 		local function Process()
-			local processStartTime = tick()
-			
 			if not SCRIPT_ENABLED then
 				StopProcessLoop()
 			end
-				
+
 			-- If tag is missing then stop
 			if tag.Parent ~= espTagFolder then
 				StopProcessLoop()
@@ -1528,11 +1539,11 @@ local function CreateESPForPlayer(plr)
 			if character ~= currentCharacter then
 				StopProcessLoop()
 			end
-			
+
 			-- Missing head
 			if head == nil then
 				FindHead()
-				
+
 				if head == nil then
 					StopProcessLoop()
 					return
@@ -1541,7 +1552,7 @@ local function CreateESPForPlayer(plr)
 				StopProcessLoop()
 				return
 			end
-			
+
 			-- Check if we can continue
 			local tagPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position + Vector3.new(0, 1.4, 0))
 
@@ -1550,10 +1561,10 @@ local function CreateESPForPlayer(plr)
 				tag.Visible = false
 				return
 			end
-			
+
 			-- Isolate specific player
 			local keyword = input_Isolate_Player.GetInputText()
-			
+
 			if keyword ~= "" then
 				if switch_Use_Display_Name.On() then
 					if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
@@ -1567,54 +1578,50 @@ local function CreateESPForPlayer(plr)
 					end
 				end
 			end
-			
+
 			-- Find player humanoid and character
 			local humanoid = nil
-			
+
 			if character then
 				humanoid = character:FindFirstChild("Humanoid")
-				
+
 				if not humanoid then
 					humanoid = character:FindFirstChildOfClass("Humanoid")
 				end
 			end
-			
+
 			-- Switch to head if possible
 			if isActuallyHead == false then
 				local h = character:FindFirstChild("Head")
-				
+
 				if h then
 					head = h
 					isActuallyHead = true
 				end
 			end
-			
+
 			-- Find root
-			local root = character:FindFirstChild("HumanoidRootPart")
-
-			if not root then
-				root = character.PrimaryPart
-
-				if not root then
-					root = character:FindFirstChildOfClass("BasePart")
-				end
+			if root == nil then
+				root = FindRootPart(character)
+			elseif root.Parent ~= character then
+				root = FindRootPart(character)
 			end
 
 			-- Tag
 			if switch_Show_Tags.On() then
-				local tagText = UpdateTag(root, humanoid)
-				
+				UpdateTag(root, humanoid)
+
 				tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - guiVerticalInset)
 				tag.Visible = true
 			else
 				tag.Visible = false
 			end
 		end
-		
+
 		-- Wrapper
 		local function pcallProcess()
 			local success, err = pcall(Process)
-			
+
 			if not success then
 				-- Debug
 				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
@@ -1695,24 +1702,24 @@ local function Process_ESP(deltaTime)
 				end
 			end
 		end
-		
+
 		-- Detect players without ESP (probably because of StreamingEnabled)
 		if tick() - lastMissingESPCheckTick > 0.5 and switch_ESP_Enabled.On() then
 			lastMissingESPCheckTick = tick()
-			
+
 			local missingPlayers = {}
-			
+
 			for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
 				if not espTagFolder:FindFirstChild(v.Name) and v ~= LOCAL_PLAYER then
 					table.insert(missingPlayers, v)
 				end
 			end
-			
+
 			for i, v in pairs(missingPlayers) do
 				CreateESPForPlayer(v)
 			end
 		end
-		
+
 		-- Freecam
 		if switch_Freecam_Enabled.ValueChanged() then
 			if switch_Freecam_Enabled.On() then
@@ -1802,7 +1809,7 @@ local function Process_ESP(deltaTime)
 			camera.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)
 		end
 	end)
-	
+
 	if not success then
 		-- Debug
 		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
@@ -1814,11 +1821,11 @@ local function Process_Teleport(deltaTime)
 	local success, err = pcall(function()
 		local camera = workspace.CurrentCamera
 		local character = LOCAL_PLAYER.Character
-		
+
 		if character == nil then
 			return
 		end
-		
+
 		-- Teleport
 		if button_Teleport_To_Camera.GetPressCount() > 0 then
 			character:SetPrimaryPartCFrame(CFrame.new(camera.CFrame.Position)) -- Removes rotation
@@ -1838,30 +1845,22 @@ local function Process_Teleport(deltaTime)
 		end
 
 		for i = 1, inputAndButton_Teleport_Forward.GetPressCount() do
-			local success, err = pcall(function()
-				local root = character:FindFirstChild("HumanoidRootPart")
+			local root = FindRootPart(character)
 
-				if not root then
-					root = character.PrimaryPart
+			if root then
+				root.CFrame = root.CFrame * CFrame.new(0, 0, -inputAndButton_Teleport_Forward.GetInputTextAsNumber())
+			end
+		end
+		
+		for i = 1, inputAndButton_Teleport_Vertical.GetPressCount() do
+			local root = FindRootPart(character)
 
-					if not root then
-						root = character:FindFirstChildOfClass("BasePart")
-					end
-				end
-
-				if root then
-					root.CFrame = root.CFrame * CFrame.new(0, 0, -inputAndButton_Teleport_Forward.GetInputTextAsNumber())
-				end
-			end)
-
-			if not success then
-				-- Debug
-				DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
-				DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
+			if root then
+				root.CFrame = root.CFrame * CFrame.new(0, inputAndButton_Teleport_Vertical.GetInputTextAsNumber(), 0)
 			end
 		end
 	end)
-	
+
 	if not success then
 		-- Debug
 		DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
@@ -1876,19 +1875,19 @@ local function Process_Aimbot(deltaTime)
 	local success, err = pcall(function()
 		local camera = workspace.CurrentCamera
 		local character = LOCAL_PLAYER.Character
-		
+
 		-- Crosshair
 		if switch_Show_Crosshair.On() then
 			crosshairFrame.Visible = true
 		else
 			crosshairFrame.Visible = false
 		end
-		
+
 		-- Aimbot
 		if character == nil then
 			return
 		end
-		
+
 		if INPUT_SERVICE:IsKeyDown(keybind_Aimbot_Engage.GetKeyCode()) and switch_Aimbot_Enabled.On() then
 			if aimbotTarget == nil then
 				-- Aimbot
@@ -1901,7 +1900,7 @@ local function Process_Aimbot(deltaTime)
 					if v.Character and v ~= LOCAL_PLAYER then
 						local checked = true
 						local head = v.Character:FindFirstChild("Head")
-						
+
 						if head == nil then
 							continue
 						end
@@ -1952,11 +1951,11 @@ local function Process_Aimbot(deltaTime)
 						end
 					end
 				end
-				
+
 				if target then
 					aimbotTarget = target
 					aimbotPrevCamCFrame = CFrame.new(camera.CFrame.Position, aimbotTarget.Position)
-					
+
 					for i = 1, 20 do
 						aimbotPredictOffsetHistory[i] = Vector2.new(0, 0)
 					end
@@ -1965,7 +1964,7 @@ local function Process_Aimbot(deltaTime)
 				-- Predict
 				if switch_Aimbot_Predictive.On() then
 					camera.CFrame = aimbotPrevCamCFrame
-					
+
 					local distance = (camera.CFrame.Position - aimbotTarget.Position).Magnitude
 
 					local targetPos = camera:WorldToViewportPoint(aimbotTarget.Position)
@@ -1974,25 +1973,25 @@ local function Process_Aimbot(deltaTime)
 
 					local difference = (targetPos - centerPos) * input_Aimbot_Predictive_Scale.GetInputTextAsNumber(0)
 					local aimbotPredictOffset = -Vector2.new(difference.X, difference.Y)
-					
+
 					if switch_Aimbot_Predictive_Distance_Factor.On() then
 						aimbotPredictOffset = aimbotPredictOffset * (distance / 20)
 					end
-					
+
 					table.insert(aimbotPredictOffsetHistory, 1, aimbotPredictOffset)
 					table.remove(aimbotPredictOffsetHistory, #aimbotPredictOffsetHistory)
-					
+
 					local value = Vector2.new(0, 0)
-					
+
 					for i = 1, #aimbotPredictOffsetHistory do
 						value = value + aimbotPredictOffsetHistory[i]
 					end
-					
+
 					value = value / #aimbotPredictOffsetHistory
-					
+
 					aimbotPrevCamCFrame = CFrame.new(camera.CFrame.Position, aimbotTarget.Position)
 					camera.CFrame = CFrame.new(camera.Focus.Position, aimbotTarget.Position) * CFrame.fromOrientation(math.rad(value.Y), math.rad(value.X), 0)
-					
+
 					local x, y, z = camera.CFrame:ToOrientation()
 					camera.CFrame = CFrame.new(camera.CFrame.Position) * CFrame.fromOrientation(x + math.rad(value.Y), y + math.rad(value.X), z)
 				else
@@ -2018,7 +2017,7 @@ local function Process_Character(deltaTime)
 
 		if character then
 			humanoid = character:FindFirstChild("Humanoid")
-			
+
 			if humanoid then
 				-- Slope Angle
 				if humanoid then
@@ -2057,7 +2056,7 @@ local function Process_Camera(deltaTime)
 		if character then
 			humanoid = character:FindFirstChild("Humanoid")
 		end
-		
+
 		-- Camera
 		if inputAndButton_CameraMinZoomDistance.GetPressCount() > 0 then
 			LOCAL_PLAYER.CameraMinZoomDistance = inputAndButton_CameraMinZoomDistance.GetInputTextAsNumber(0.5)
@@ -2107,7 +2106,7 @@ end
 local function Process_Information(deltaTime)
 	local success, err = pcall(function()
 		local camera = workspace.CurrentCamera
-		
+
 		-- Value should match the number of players not loaded in
 		local missingTagCount = #PLAYER_SERVICE:GetPlayers() - #espTagFolder:GetChildren() - 1
 
@@ -2116,7 +2115,7 @@ local function Process_Information(deltaTime)
 		else
 			output_ESP.EditLabel(2, "Missing Tags: N/A")
 		end
-		
+
 		-- Find character and humanoid
 		local character = LOCAL_PLAYER.Character
 		local humanoid = nil
@@ -2124,7 +2123,7 @@ local function Process_Information(deltaTime)
 		if character then
 			humanoid = character:FindFirstChild("Humanoid")
 		end
-		
+
 		-- Information
 		local camPosString = RoundNumber(camera.CFrame.Position.X, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Y, 2) .. ", " .. RoundNumber(camera.CFrame.Position.Z, 2)
 		local camRotString = nil
@@ -2296,16 +2295,16 @@ local mouseButton1DownConnection = MOUSE.Button1Down:Connect(function()
 
 				if character then
 					local depth = 0
-					
+
 					local params = RaycastParams.new()
 					params.FilterType = Enum.RaycastFilterType.Blacklist
 					params.FilterDescendantsInstances = { character }
-					
+
 					local function PerformRay(origin, direction)
 						if depth > 100 then
 							return
 						end
-						
+
 						local result = workspace:Raycast(origin, direction.Unit * 15000, params)
 
 						if result then
@@ -2313,18 +2312,18 @@ local mouseButton1DownConnection = MOUSE.Button1Down:Connect(function()
 								if switch_KeybindClick_Ignore_Transparent_Parents.On() then
 									PerformRay(result.Position + (direction.Unit * 0.001), direction)
 									depth = depth + 1
-									
+
 									return
 								end
 							end
-							
+
 							--character:SetPrimaryPartCFrame(CFrame.new(result.Position + result.Normal * 4.5))
 							character:SetPrimaryPartCFrame(CFrame.new(result.Position + Vector3.new(0, 4.5, 0)))
 						else
 							return
 						end
 					end
-					
+
 					local ray = workspace.CurrentCamera:ScreenPointToRay(MOUSE.X, MOUSE.Y)
 					PerformRay(ray.Origin, ray.Direction)
 				end
@@ -2341,37 +2340,29 @@ local inputConnection = INPUT_SERVICE.InputBegan:Connect(function(input, gamePro
 			if switch_Teleport_Forward_Double_Tap.On() == false then
 				return
 			end
-			
+
 			if tick() - teleportForwardKeybindLastPressed < input_Teleport_Forward_Double_Tap_Time_Range.GetInputTextAsNumber(0.5) then
 				local success, err = pcall(function()
 					local character = LOCAL_PLAYER.Character
-					
+
 					if character == nil then
 						return
 					end
 					
-					local root = character:FindFirstChild("HumanoidRootPart")
-
-					if not root then
-						root = character.PrimaryPart
-
-						if not root then
-							root = character:FindFirstChildOfClass("BasePart")
-						end
-					end
+					local root = FindRootPart(character)
 
 					if root then
 						root.CFrame = root.CFrame * CFrame.new(0, 0, -inputAndButton_Teleport_Forward.GetInputTextAsNumber())
 					end
 				end)
-				
+
 				if not success then
 					-- Debug
 					DEBUG_ERROR_COUNT = DEBUG_ERROR_COUNT + 1
 					DEBUG_LAST_ERROR_MESSAGE = debug.traceback() .. " - Message: " .. err
 				end
 			end
-			
+
 			teleportForwardKeybindLastPressed = tick()
 		end
 	end
