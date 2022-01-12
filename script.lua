@@ -1141,10 +1141,13 @@ local switch_Aimbot_Team_Check = CreateSwitch(folder_Aimbot, "Team Check", false
 local switch_Aimbot_Wall_Check = CreateSwitch(folder_Aimbot, "Wall Check", false)
 local switch_Show_Crosshair = CreateSwitch(folder_Aimbot, "Show Crosshair", false)
 local keybind_Aimbot_Engage = CreateKeybind(folder_Aimbot, "Engage Aimbot", Enum.KeyCode.V)
+CreatePadding(folder_Aimbot, 4)
+local switch_Aimbot_Predictive = CreateSwitch(folder_Aimbot, "Predictive", false)
+local switch_Aimbot_Predictive_Distance_Factor = CreateSwitch(folder_Aimbot, "Account For Distance", true)
+local input_Aimbot_Predictive_Scale = CreateInput(folder_Aimbot, "Predict Scale", 0.15)
 
 -- Character
 local folder_Character = CreateFolder(elementsContainer, "Character", nil, true)
-local switch_Noclip_Enabled = CreateSwitch(folder_Character, "Noclip Enabled", false)
 local button_Sit = CreateButton(folder_Character, "Sit", "Sit")
 local inputAndButton_Slope_Angle = CreateInputAndButton(folder_Character, "Slope Angle", 89, "Set")
 local switch_Force_Slope_Angle = CreateSwitch(folder_Character, "Force Slope Angle", false)
@@ -1234,6 +1237,8 @@ local characterRealVelocityHistoryLength = 50
 local characterRealVelocityHistory = table.create(characterRealVelocityHistoryLength, 0)
 
 local teleportForwardKeybindLastPressed = 0
+
+local noclipPartsCanCollideOn = {}
 
 -- Freecam scroll
 local inputChangedConnection = INPUT_SERVICE.InputChanged:Connect(function(input, gameProcessed)
@@ -1864,6 +1869,9 @@ local function Process_Teleport(deltaTime)
 	end
 end
 
+local aimbotPrevCamCFrame = CFrame.new(0, 0, 0)
+local aimbotPredictOffsetHistory = {}
+
 local function Process_Aimbot(deltaTime)
 	local success, err = pcall(function()
 		local camera = workspace.CurrentCamera
@@ -1890,19 +1898,20 @@ local function Process_Aimbot(deltaTime)
 				local camDir = camera.CFrame.LookVector
 
 				for _, v in pairs(PLAYER_SERVICE:GetPlayers()) do
-					if v.Character and v.Name ~= LOCAL_PLAYER.Name then
+					if v.Character and v ~= LOCAL_PLAYER then
 						local checked = true
-
-						if not v.Character:FindFirstChild("Head") then
-							checked = false
+						local head = v.Character:FindFirstChild("Head")
+						
+						if head == nil then
+							continue
 						end
 
 						if v.Team == LOCAL_PLAYER.Team and switch_Aimbot_Team_Check.On() then
-							checked = false
+							continue
 						end
 
 						do -- Check if on screen
-							local pos, onScreen = camera:WorldToScreenPoint(v.Character.Head.Position)
+							local pos, onScreen = camera:WorldToScreenPoint(head.Position)
 
 							if not onScreen then
 								checked = false
@@ -1911,7 +1920,7 @@ local function Process_Aimbot(deltaTime)
 
 						if switch_Aimbot_Wall_Check.On() then
 							local me = character:GetPrimaryPartCFrame().Position
-							local them = v.Character.Head.Position
+							local them = head.Position
 
 							local rayDirection = (them - me).Unit * (me - them).Magnitude
 
@@ -1931,7 +1940,7 @@ local function Process_Aimbot(deltaTime)
 						end
 
 						if checked then
-							local testTarget = v.Character.Head
+							local testTarget = head
 
 							local targetDir = -(testTarget.Position - camera.CFrame.Position).Unit
 							local d = camDir:Dot(targetDir)
@@ -1943,13 +1952,52 @@ local function Process_Aimbot(deltaTime)
 						end
 					end
 				end
-
+				
 				if target then
 					aimbotTarget = target
-					camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
+					aimbotPrevCamCFrame = CFrame.new(camera.CFrame.Position, aimbotTarget.Position)
+					
+					for i = 1, 20 do
+						aimbotPredictOffsetHistory[i] = Vector2.new(0, 0)
+					end
 				end
 			else
-				camera.CFrame = CFrame.new(camera.CFrame.Position, aimbotTarget.Position)
+				-- Predict
+				if switch_Aimbot_Predictive.On() then
+					camera.CFrame = aimbotPrevCamCFrame
+					
+					local distance = (camera.CFrame.Position - aimbotTarget.Position).Magnitude
+
+					local targetPos = camera:WorldToViewportPoint(aimbotTarget.Position)
+					local centerPos = camera.ViewportSize / 2
+					targetPos = Vector2.new(targetPos.X, targetPos.Y)
+
+					local difference = (targetPos - centerPos) * input_Aimbot_Predictive_Scale.GetInputTextAsNumber(0)
+					local aimbotPredictOffset = -Vector2.new(difference.X, difference.Y)
+					
+					if switch_Aimbot_Predictive_Distance_Factor.On() then
+						aimbotPredictOffset = aimbotPredictOffset * (distance / 20)
+					end
+					
+					table.insert(aimbotPredictOffsetHistory, 1, aimbotPredictOffset)
+					table.remove(aimbotPredictOffsetHistory, #aimbotPredictOffsetHistory)
+					
+					local value = Vector2.new(0, 0)
+					
+					for i = 1, #aimbotPredictOffsetHistory do
+						value = value + aimbotPredictOffsetHistory[i]
+					end
+					
+					value = value / #aimbotPredictOffsetHistory
+					
+					aimbotPrevCamCFrame = CFrame.new(camera.CFrame.Position, aimbotTarget.Position)
+					camera.CFrame = CFrame.new(camera.Focus.Position, aimbotTarget.Position) * CFrame.fromOrientation(math.rad(value.Y), math.rad(value.X), 0)
+					
+					local x, y, z = camera.CFrame:ToOrientation()
+					camera.CFrame = CFrame.new(camera.CFrame.Position) * CFrame.fromOrientation(x + math.rad(value.Y), y + math.rad(value.X), z)
+				else
+					camera.CFrame = CFrame.new(camera.CFrame.Position, aimbotTarget.Position)
+				end
 			end
 		else
 			aimbotTarget = nil
@@ -1981,11 +2029,6 @@ local function Process_Character(deltaTime)
 					if inputAndButton_Slope_Angle.GetPressCount() > 0 then
 						humanoid.MaxSlopeAngle = inputAndButton_Slope_Angle.GetInputTextAsNumber()
 					end
-				end
-				
-				-- Noclip
-				if switch_Noclip_Enabled.On() then
-					humanoid:ChangeState(11)
 				end
 
 				-- Sit
@@ -2195,7 +2238,7 @@ local function Process_Information(deltaTime)
 			output_Character.EditLabel(8, "Health: " .. RoundNumber(humanoid.Health, 3) .. "/" .. RoundNumber(humanoid.MaxHealth, 3))
 		else
 			output_Character.EditLabel(5, "Walk Speed: N/A")
-			output_Character.EditLabel(6, "Jump Power: N/A")
+			output_Character.EditLabel(6, "Jump Power/Height: N/A")
 			output_Character.EditLabel(7, "Max Slope Angle: N/A")
 			output_Character.EditLabel(8, "Health: N/A")
 		end
