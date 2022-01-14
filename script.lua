@@ -1115,6 +1115,7 @@ local switch_Bold_Tags = CreateSwitch(folder_ESP_Settings, "Bold Tags", false)
 local switch_Use_Display_Name = CreateSwitch(folder_ESP_Settings, "Use Display Name", false)
 local switch_Label_Item_In_Hand = CreateSwitch(folder_ESP_Settings, "Label Item In Hand", false)
 local switch_Show_Distance = CreateSwitch(folder_ESP_Settings, "Show Distance", false)
+local switch_Show_Tracers = CreateSwitch(folder_ESP_Settings, "Show Tracers", false)
 local input_ESP_Transparency = CreateInput(folder_ESP_Settings, "ESP Transparency", 0.9)
 local input_Tag_Transparency = CreateInput(folder_ESP_Settings, "Tag Transparency", 0)
 
@@ -1184,6 +1185,7 @@ local output_Debug = CreateOutput(folder_Debug, 10)
 
 local espBoxFolder = Instance.new("Folder", applicationGui)
 local espTagFolder = Instance.new("Folder", applicationGui)
+local espTracerFolder = Instance.new("Folder", applicationGui)
 
 -- Cursor (used to show where the mouse incase the mouse icon is invisible)
 local cursor = Instance.new("Frame", applicationGui)
@@ -1347,6 +1349,11 @@ local function CreateESPForPlayer(plr)
 		item.TextStrokeTransparency = 0.9
 		item.BackgroundTransparency = 1
 		item.Visible = false
+		
+		local tracer = Instance.new("Frame", espTracerFolder)
+		tracer.BorderSizePixel = 0
+		tracer.Size = UDim2.new(0, 0)
+		tracer.AnchorPoint = Vector2.new(0.5, 0.5)
 
 		if LOCAL_PLAYER:IsFriendsWith(plr.UserId) then -- Label as friend
 			local friend = Instance.new("TextLabel", tag)
@@ -1460,6 +1467,10 @@ local function CreateESPForPlayer(plr)
 			if tag ~= nil then
 				tag:Destroy()
 			end
+			
+			if tracer ~= nil then
+				tracer:Destroy()
+			end
 
 			espList[plr.Name] = false
 
@@ -1480,7 +1491,7 @@ local function CreateESPForPlayer(plr)
 
 		-- Tag update stuff
 
-		local function UpdateTag(root, humanoid)
+		local function UpdateTag(camera, root, humanoid, tagPosition)
 			local tagText = ""
 
 			if switch_Use_Display_Name.On() then
@@ -1525,8 +1536,26 @@ local function CreateESPForPlayer(plr)
 			if tag.Text ~= tagText then
 				tag.Text = tagText
 			end
-
-			tag.TextColor3 = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+			
+			local teamColor = Color3.new(plr.TeamColor.r, plr.TeamColor.g, plr.TeamColor.b)
+			
+			if switch_Show_Tracers.On() then
+				local point1 = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y - guiVerticalInset)
+				local point2 = Vector2.new(tagPosition.X, tagPosition.Y - guiVerticalInset + 10)
+				
+				local difference = Vector2.new(point2.X - point1.X, point2.Y - point1.Y)
+				local distance = math.sqrt(difference.X * difference.X + difference.Y * difference.Y)
+				local rotation = math.deg(math.atan2(difference.Y, difference.X))
+				
+				tracer.Visible = true
+				tracer.BackgroundColor3 = teamColor
+				
+				tracer.Rotation = rotation
+				tracer.Size = UDim2.new(0, distance, 0, 2)
+				tracer.Position = UDim2.new(0, (point2.X + point1.X) / 2, 0, (point2.Y + point1.Y) / 2)
+			end
+			
+			tag.TextColor3 = teamColor
 			tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 		end
 
@@ -1559,11 +1588,13 @@ local function CreateESPForPlayer(plr)
 			end
 
 			-- Check if we can continue
-			local tagPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position + Vector3.new(0, 1.4, 0))
+			local camera = workspace.CurrentCamera
+			local tagPosition, onScreen = camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1.4, 0))
 
 			-- Tag is not visible because camera is not facing player
 			if not onScreen then
 				tag.Visible = false
+				tracer.Visible = false
 				return
 			end
 
@@ -1574,11 +1605,13 @@ local function CreateESPForPlayer(plr)
 				if switch_Use_Display_Name.On() then
 					if not string.find(string.lower(plr.DisplayName), string.lower(keyword)) then
 						tag.Visible = false
+						tracer.Visible = false
 						return
 					end
 				else
 					if not string.find(string.lower(plr.Name), string.lower(keyword)) then
 						tag.Visible = false
+						tracer.Visible = false
 						return
 					end
 				end
@@ -1614,12 +1647,13 @@ local function CreateESPForPlayer(plr)
 
 			-- Tag
 			if switch_Show_Tags.On() then
-				UpdateTag(root, humanoid)
+				UpdateTag(camera, root, humanoid, tagPosition)
 
 				tag.Position = UDim2.new(0, tagPosition.X, 0, tagPosition.Y - guiVerticalInset)
 				tag.Visible = true
 			else
 				tag.Visible = false
+				tracer.Visible = false
 			end
 		end
 
