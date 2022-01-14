@@ -1553,6 +1553,8 @@ local function CreateESPForPlayer(plr)
 				tracer.Rotation = rotation
 				tracer.Size = UDim2.new(0, distance, 0, 1)
 				tracer.Position = UDim2.new(0, (point2.X + point1.X) / 2, 0, (point2.Y + point1.Y) / 2)
+			else
+				tracer.Visible = false
 			end
 			
 			tag.TextColor3 = teamColor
