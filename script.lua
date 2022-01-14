@@ -1129,8 +1129,8 @@ local keybind_Freecam_Down = CreateKeybind(folder_Freecam_Settings, "Freecam Dow
 local folder_Teleport = CreateFolder(elementsContainer, "Teleport", nil, false)
 local button_Teleport_To_Camera = CreateButton(folder_Teleport, "TP To Camera", "Teleport")
 local inputAndButton_Teleport_To_Player = CreateInputAndButton(folder_Teleport, "TP To Player", "", "Teleport")
-local inputAndButton_Teleport_Forward = CreateInputAndButton(folder_Teleport, "TP Forward Studs", "5", "Teleport")
-local inputAndButton_Teleport_Vertical = CreateInputAndButton(folder_Teleport, "TP Vertical Studs", "5", "Teleport")
+local inputAndButton_Teleport_Forward = CreateInputAndButton(folder_Teleport, "TP Forward Studs", 5, "Teleport")
+local inputAndButton_Teleport_Vertical = CreateInputAndButton(folder_Teleport, "TP Vertical Studs", 15, "Teleport")
 CreatePadding(folder_Teleport, 4)
 local switch_Teleport_Forward_Double_Tap = CreateSwitch(folder_Teleport, "Double Tap TP Forward", false)
 local keybind_Teleport_Forward_Double_Tap = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.T)
@@ -1734,7 +1734,7 @@ local function Process_ESP(deltaTime)
 
 				local x, y = workspace.CurrentCamera.CFrame:ToOrientation()
 				freecamPosition = workspace.CurrentCamera.CFrame.Position
-				freecamRotation = Vector2.new(-y, -x)
+				freecamRotation = Vector2.new(y, x)
 			else
 				-- Enable movement of character
 				camera.CameraType = prevCameraType
@@ -1782,10 +1782,10 @@ local function Process_ESP(deltaTime)
 				local delta = INPUT_SERVICE:GetMouseDelta()
 				local sens = INPUT_SERVICE.MouseDeltaSensitivity * input_Freecam_Sensitivity.GetInputTextAsNumber()
 
-				local x = delta.X * (sens * sens)
-				local y = delta.Y * (sens * sens)
+				local x = delta.X * sens * sens
+				local y = delta.Y * sens * sens
 
-				freecamRotation = freecamRotation + Vector2.new(math.rad(x), math.rad(y))
+				freecamRotation = freecamRotation - Vector2.new(math.rad(x), math.rad(y))
 			else
 				INPUT_SERVICE.MouseBehavior = Enum.MouseBehavior.Default
 			end
@@ -1802,16 +1802,16 @@ local function Process_ESP(deltaTime)
 			end
 
 			local move = freecamVelocity.Unit * input_Freecam_Velocity.GetInputTextAsNumber() * deltaTime * speedMultiplier
-			if tostring(move.X) == "-nan(ind)" then move = Vector3.new(0, 0, 0) end
+			if tostring(move.X) == "nan" then move = Vector3.new(0, 0, 0) end
 
-			local look = -(CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).LookVector
-			local up = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).UpVector
-			local right = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)).RightVector
+			local look = -(CFrame.new(0, 0, 0) *  CFrame.fromOrientation(freecamRotation.Y, freecamRotation.X, 0)).LookVector
+			local up = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(freecamRotation.Y, freecamRotation.X, 0)).UpVector
+			local right = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(freecamRotation.Y, freecamRotation.X, 0)).RightVector
 
 			freecamPosition = freecamPosition + (move.Z * look) + (move.X * right) + (move.Y * up)
 
 			camera.CameraType = Enum.CameraType.Scriptable
-			camera.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(-freecamRotation.Y, -freecamRotation.X, 0)
+			camera.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(freecamRotation.Y, freecamRotation.X, 0)
 		end
 	end)
 
@@ -2386,7 +2386,7 @@ local uniqueId_CoreGui = game:GetService("HttpService"):GenerateGUID(false)
 local uniqueId_Information = game:GetService("HttpService"):GenerateGUID(false)
 
 RUN_SERVICE:BindToRenderStep(uniqueId_Camera, Enum.RenderPriority.Camera.Value, Process_Camera)
-RUN_SERVICE:BindToRenderStep(uniqueId_ESP, Enum.RenderPriority.Camera.Value + 1, Process_ESP)
+RUN_SERVICE:BindToRenderStep(uniqueId_ESP, Enum.RenderPriority.Last.Value, Process_ESP)
 RUN_SERVICE:BindToRenderStep(uniqueId_Aimbot, Enum.RenderPriority.Camera.Value + 2, Process_Aimbot)
 RUN_SERVICE:BindToRenderStep(uniqueId_Teleport, Enum.RenderPriority.Camera.Value + 3, Process_Teleport)
 RUN_SERVICE:BindToRenderStep(uniqueId_Character, Enum.RenderPriority.Camera.Value + 4, Process_Character)
