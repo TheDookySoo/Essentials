@@ -1838,13 +1838,16 @@ local function Process_ESP(deltaTime)
 			end
 
 			local move = freecamVelocity.Unit * input_Freecam_Velocity.GetInputTextAsNumber() * deltaTime * speedMultiplier
-			if tostring(move.X) == "nan" then move = Vector3.new(0, 0, 0) end
-
+			--if tostring(move.X) == "nan" then move = Vector3.new(0, 0, 0) end
+			if move.X ~= move.X then move = Vector3.new(0, 0, 0) end
+			
 			local look = -(CFrame.new(0, 0, 0) *  CFrame.fromOrientation(freecamRotation.Y, freecamRotation.X, 0)).LookVector
 			local up = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(freecamRotation.Y, freecamRotation.X, 0)).UpVector
 			local right = (CFrame.new(0, 0, 0) *  CFrame.fromOrientation(freecamRotation.Y, freecamRotation.X, 0)).RightVector
 
 			freecamPosition = freecamPosition + (move.Z * look) + (move.X * right) + (move.Y * up)
+			
+			output_Debug.EditLabel(2, move.X)
 
 			camera.CameraType = Enum.CameraType.Scriptable
 			camera.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(freecamRotation.Y, freecamRotation.X, 0)
