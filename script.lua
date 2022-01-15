@@ -1847,8 +1847,6 @@ local function Process_ESP(deltaTime)
 
 			freecamPosition = freecamPosition + (move.Z * look) + (move.X * right) + (move.Y * up)
 			
-			output_Debug.EditLabel(2, move.X)
-
 			camera.CameraType = Enum.CameraType.Scriptable
 			camera.CFrame = CFrame.new(freecamPosition) * CFrame.fromOrientation(freecamRotation.Y, freecamRotation.X, 0)
 		end
