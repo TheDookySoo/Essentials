@@ -6,6 +6,7 @@ local TWEEN_SERVICE = game:GetService("TweenService")
 local PLAYER_SERVICE = game:GetService("Players")
 local REPLICATED_STORAGE = game:GetService("ReplicatedStorage")
 local STARTER_GUI = game:GetService("StarterGui")
+local TEXT_SERVICE = game:GetService("TextService")
 
 local LOCAL_PLAYER = PLAYER_SERVICE.LocalPlayer
 local MOUSE = LOCAL_PLAYER:GetMouse()
@@ -1112,6 +1113,7 @@ local input_Isolate_Player = CreateInput(folder_ESP, "Isolate Player", "")
 local folder_ESP_Settings = CreateFolder(elementsContainer, "ESP Settings", nil, true)
 local switch_Show_Tags = CreateSwitch(folder_ESP_Settings, "Show Tags", true)
 local switch_Bold_Tags = CreateSwitch(folder_ESP_Settings, "Bold Tags", false)
+local switch_High_Contrast_Tags = CreateSwitch(folder_ESP_Settings, "High Contrast Tags", false)
 local switch_Use_Display_Name = CreateSwitch(folder_ESP_Settings, "Use Display Name", false)
 local switch_Label_Item_In_Hand = CreateSwitch(folder_ESP_Settings, "Label Item In Hand", false)
 local switch_Show_Distance = CreateSwitch(folder_ESP_Settings, "Show Distance", false)
@@ -1338,6 +1340,11 @@ local function CreateESPForPlayer(plr)
 		tag.BackgroundTransparency = 1
 		tag.AnchorPoint = Vector2.new(0.5, 1)
 		tag.TextSize = 11
+		
+		local teamSquare = Instance.new("Frame", tag)
+		teamSquare.BorderSizePixel = 0
+		teamSquare.Size = UDim2.new(0, 7, 0, 7)
+		teamSquare.AnchorPoint = Vector2.new(1, 0.5)
 
 		local item = Instance.new("TextLabel", tag)
 		item.Text = ""
@@ -1500,22 +1507,6 @@ local function CreateESPForPlayer(plr)
 				tagText = "[" .. plr.Name .. "]"
 			end
 
-			if switch_Bold_Tags.On() then
-				tag.TextStrokeTransparency = input_Tag_Transparency.GetInputTextAsNumber()
-
-				local color = tag.TextColor3
-				local v = (color.R + color.G + color.B) / 3
-
-				if v > 0.5 then
-					tag.TextStrokeColor3 = Color3.new(0, 0, 0)  
-				else
-					tag.TextStrokeColor3 = Color3.new(1, 1, 1) 
-				end
-			else
-				tag.TextStrokeTransparency = 0.9
-				tag.TextStrokeColor3 = Color3.new(0, 0, 0)
-			end
-
 			if humanoid then
 				local health = math.floor(humanoid.Health + 0.5)
 				local maxHealth = math.floor(humanoid.MaxHealth + 0.5)
@@ -1557,7 +1548,40 @@ local function CreateESPForPlayer(plr)
 				tracer.Visible = false
 			end
 			
-			tag.TextColor3 = teamColor
+			-- Tag colors
+			
+			local v = (teamColor.R + teamColor.G + teamColor.B) / 3
+			local boldTagsBorderColor
+
+			if v > 0.5 then
+				boldTagsBorderColor = Color3.new(0, 0, 0)  
+			else
+				boldTagsBorderColor = Color3.new(1, 1, 1) 
+			end
+			
+			if switch_High_Contrast_Tags.On() then
+				tag.TextColor3 = Color3.new(1, 1, 1)
+				tag.TextStrokeColor3 = Color3.new(0, 0, 0)
+				tag.TextStrokeTransparency = 0
+				
+				teamSquare.BorderSizePixel = 1
+				teamSquare.BorderColor3 = boldTagsBorderColor
+				teamSquare.Position = UDim2.new(0, -tag.TextBounds.X / 2 - 5, 0, 0)
+				teamSquare.BackgroundColor3 = teamColor			
+				teamSquare.Visible = true
+			else
+				if switch_Bold_Tags.On() then
+					tag.TextStrokeTransparency = input_Tag_Transparency.GetInputTextAsNumber()
+					tag.TextStrokeColor3 = boldTagsBorderColor
+				else
+					tag.TextStrokeTransparency = 0.9
+					tag.TextStrokeColor3 = Color3.new(0, 0, 0)
+				end
+				
+				tag.TextColor3 = teamColor
+				teamSquare.Visible = false
+			end
+			
 			tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 		end
 
