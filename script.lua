@@ -538,7 +538,6 @@ local function CreateInput(parent, title, default)
 
 	function input.GetInputTextAsNumber(default)
 		local d = default == nil and 0 or default
-
 		local n = tonumber(inputTextBox.Text)
 
 		return n == nil and d or n
@@ -669,10 +668,11 @@ local function CreateInputAndButton(parent, title, defaultInput, buttonText)
 		return inputTextBox.Text
 	end
 
-	function object.GetInputTextAsNumber()
+	function object.GetInputTextAsNumber(default)
+		local d = default == nil and 0 or default
 		local n = tonumber(inputTextBox.Text)
 
-		return n == nil and 0 or n
+		return n == nil and d or n
 	end
 
 	function object.InputChanged()
@@ -1169,6 +1169,13 @@ CreatePadding(folder_Camera, 4)
 local button_Fix_Camera = CreateButton(folder_Camera, "Fix Camera", "Fix")
 local button_Load_World_At_Camera = CreateButton(folder_Camera, "Load World At Camera", "Load")
 
+-- Zoom
+local folder_Zoom = CreateFolder(elementsContainer, "Zoom Keybind", nil, true)
+local switch_Zoom_Enabled = CreateSwitch(folder_Zoom, "Enabled", false)
+local keybind_Zoom = CreateKeybind(folder_Zoom, "Keybind", Enum.KeyCode.LeftControl)
+local input_Zoom_FOV = CreateInput(folder_Zoom, "Zoom FOV", 25)
+local inputAndButton_Normal_FOV = CreateInputAndButton(folder_Zoom, "Set Normal FOV", 70, "Set")
+
 -- Core Gui
 local folder_CoreGui = CreateFolder(elementsContainer, "Core Gui", nil, false)
 local dualButtons_ResetCharacter = CreateDualButtons(folder_CoreGui, "Reset Character", "Enable", "Disable")
@@ -1313,21 +1320,34 @@ local function CreateESPForPlayer(plr)
 		local head
 		local root
 		local isActuallyHead = true
+		
+		local function FFC(name)
+			local temp = character:FindFirstChild(name)
+
+			if temp then
+				if temp:IsA("BasePart") then
+					isActuallyHead = temp.Name == "Head"
+					return temp
+				end
+			end
+
+			return nil
+		end
 
 		local function FindHead()
-			head = character:FindFirstChild("Head")
+			head = FFC("Head") or FFC("HumanoidRootPart") or FFC("Torso")
 
 			if head == nil then
-				head = character.PrimaryPart
-				isActuallyHead = false
-
-				if head == nil then
-					head = character:FindFirstChildOfClass("BasePart")
-
-					if head == nil then
-						espList[plr.Name] = false
-						return
+				for _, v in pairs(character:GetDescendants()) do
+					if v:IsA("BasePart") then
+						head = v
+						isActuallyHead = false
+						break
 					end
+				end
+				
+				if head == nil then
+					espList[plr.Name] = false
 				end
 			end
 		end
@@ -1584,6 +1604,8 @@ local function CreateESPForPlayer(plr)
 			
 			tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 		end
+		
+		local lastCheckForHeadTick = 0
 
 		local function Process()
 			if not SCRIPT_ENABLED then
@@ -1655,13 +1677,9 @@ local function CreateESPForPlayer(plr)
 			end
 
 			-- Switch to head if possible
-			if isActuallyHead == false then
-				local h = character:FindFirstChild("Head")
-
-				if h then
-					head = h
-					isActuallyHead = true
-				end
+			if isActuallyHead == false and tick() - lastCheckForHeadTick > 0.2 then
+				lastCheckForHeadTick = tick()
+				FindHead()
 			end
 
 			-- Find root
@@ -2111,6 +2129,8 @@ local function Process_Character(deltaTime)
 	end
 end
 
+local prevCameraFOV = workspace.CurrentCamera.FieldOfView
+
 local function Process_Camera(deltaTime)
 	local success, err = pcall(function()
 		local camera = workspace.CurrentCamera
@@ -2139,9 +2159,29 @@ local function Process_Camera(deltaTime)
 				camera.CameraSubject = humanoid
 			end
 		end
-
+		
 		if button_Load_World_At_Camera.GetPressCount() > 0 then
 			LOCAL_PLAYER:RequestStreamAroundAsync(camera.CFrame.Position)
+		end
+		
+		-- Zoom
+		
+		if switch_Zoom_Enabled.ValueChanged() then
+			if switch_Zoom_Enabled.On() == false then
+				camera.FieldOfView = prevCameraFOV
+			end
+		end
+
+		if switch_Zoom_Enabled.On() then
+			if INPUT_SERVICE:IsKeyDown(keybind_Zoom.GetKeyCode()) then
+				camera.FieldOfView = input_Zoom_FOV.GetInputTextAsNumber(70)
+			end
+		end
+		
+		-- Normal FOV
+		
+		if inputAndButton_Normal_FOV.GetPressCount() > 0 then
+			camera.FieldOfView = inputAndButton_Normal_FOV.GetInputTextAsNumber(70)
 		end
 	end)
 
@@ -2430,12 +2470,25 @@ local inputConnection = INPUT_SERVICE.InputBegan:Connect(function(input, gamePro
 			end
 
 			teleportForwardKeybindLastPressed = tick()
+		elseif input.KeyCode == keybind_Zoom.GetKeyCode() then
+			prevCameraFOV = workspace.CurrentCamera.FieldOfView
+		end
+	end
+end)
+
+-- Input ended
+
+local inputEndedConnection = INPUT_SERVICE.InputEnded:Connect(function(input, gameProcessed)
+	if gameProcessed == false then
+		if input.KeyCode == keybind_Zoom.GetKeyCode() and switch_Zoom_Enabled.On() then
+			workspace.CurrentCamera.FieldOfView = prevCameraFOV
 		end
 	end
 end)
 
 table.insert(ALL_CONNECTIONS, mouseButton1DownConnection)
 table.insert(ALL_CONNECTIONS, inputConnection)
+table.insert(ALL_CONNECTIONS, inputEndedConnection)
 
 -- Bind process function to render step. Priority set to last so we can have control over everything (maybe)
 local uniqueId_ESP = game:GetService("HttpService"):GenerateGUID(false)
@@ -2448,11 +2501,11 @@ local uniqueId_Information = game:GetService("HttpService"):GenerateGUID(false)
 
 RUN_SERVICE:BindToRenderStep(uniqueId_Camera, Enum.RenderPriority.Camera.Value, Process_Camera)
 RUN_SERVICE:BindToRenderStep(uniqueId_ESP, Enum.RenderPriority.Last.Value, Process_ESP)
-RUN_SERVICE:BindToRenderStep(uniqueId_Aimbot, Enum.RenderPriority.Camera.Value + 2, Process_Aimbot)
-RUN_SERVICE:BindToRenderStep(uniqueId_Teleport, Enum.RenderPriority.Camera.Value + 3, Process_Teleport)
-RUN_SERVICE:BindToRenderStep(uniqueId_Character, Enum.RenderPriority.Camera.Value + 4, Process_Character)
-RUN_SERVICE:BindToRenderStep(uniqueId_CoreGui, Enum.RenderPriority.Camera.Value + 5, Process_CoreGui)
-RUN_SERVICE:BindToRenderStep(uniqueId_Information, Enum.RenderPriority.Camera.Value + 6, Process_Information)
+RUN_SERVICE:BindToRenderStep(uniqueId_Aimbot, Enum.RenderPriority.Camera.Value + 1, Process_Aimbot)
+RUN_SERVICE:BindToRenderStep(uniqueId_Teleport, Enum.RenderPriority.Camera.Value + 2, Process_Teleport)
+RUN_SERVICE:BindToRenderStep(uniqueId_Character, Enum.RenderPriority.Camera.Value + 3, Process_Character)
+RUN_SERVICE:BindToRenderStep(uniqueId_CoreGui, Enum.RenderPriority.Camera.Value + 4, Process_CoreGui)
+RUN_SERVICE:BindToRenderStep(uniqueId_Information, Enum.RenderPriority.Camera.Value + 5, Process_Information)
 
 -- Wait until window is closed
 repeat RUN_SERVICE.RenderStepped:Wait() until window.IsActive() == false
