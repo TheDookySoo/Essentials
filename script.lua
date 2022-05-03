@@ -1602,7 +1602,6 @@ local function CreateESPForPlayer(plr)
 				teamSquare.Visible = false
 			end
 			
-			tag.TextStrokeTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 			tag.TextTransparency = input_Tag_Transparency.GetInputTextAsNumber()
 		end
 		
