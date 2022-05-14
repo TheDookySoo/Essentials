@@ -1140,14 +1140,15 @@ local keybind_Teleport_Forward_Double_Tap = CreateKeybind(folder_Teleport, "Keyb
 local input_Teleport_Forward_Double_Tap_Time_Range = CreateInput(folder_Teleport, "Valid Time Range [s]", "0.2")
 CreatePadding(folder_Teleport, 4)
 local switch_KeybindClick_Teleport = CreateSwitch(folder_Teleport, "Keybind + Click TP")
-local switch_KeybindClick_Ignore_Transparent_Parents = CreateSwitch(folder_Teleport, "Ignore Transparent Parts", true)
 local keybind_KeybindClick_Teleport = CreateKeybind(folder_Teleport, "Keybind", Enum.KeyCode.LeftControl)
+local switch_KeybindClick_Ignore_Transparent_Parents = CreateSwitch(folder_Teleport, "Ignore Transparent Parts", true)
 
 -- Aimbot
 local folder_Aimbot = CreateFolder(elementsContainer, "Aimbot", nil, true)
 local switch_Aimbot_Enabled = CreateSwitch(folder_Aimbot, "Aimbot Enabled", false)
 local switch_Aimbot_Team_Check = CreateSwitch(folder_Aimbot, "Team Check", false)
 local switch_Aimbot_Wall_Check = CreateSwitch(folder_Aimbot, "Wall Check", false)
+local switch_Aimbot_Ignore_Friends = CreateSwitch(folder_Aimbot, "Ignore Friends", true)
 local switch_Show_Crosshair = CreateSwitch(folder_Aimbot, "Show Crosshair", false)
 local keybind_Aimbot_Engage = CreateKeybind(folder_Aimbot, "Engage Aimbot", Enum.KeyCode.V)
 CreatePadding(folder_Aimbot, 4)
@@ -1164,7 +1165,7 @@ local switch_Force_Slope_Angle = CreateSwitch(folder_Character, "Force Slope Ang
 -- Camera
 local folder_Camera = CreateFolder(elementsContainer, "Camera", nil, false)
 local inputAndButton_CameraMinZoomDistance = CreateInputAndButton(folder_Camera, "Min Zoom Distance", 0.5, "Set")
-local inputAndButton_CameraMaxZoomDistance = CreateInputAndButton(folder_Camera, "Max Zoom Distance", 1024, "Set")
+local inputAndButton_CameraMaxZoomDistance = CreateInputAndButton(folder_Camera, "Max Zoom Distance", 2048, "Set")
 CreatePadding(folder_Camera, 4)
 local button_Fix_Camera = CreateButton(folder_Camera, "Fix Camera", "Fix")
 local button_Load_World_At_Camera = CreateButton(folder_Camera, "Load World At Camera", "Load")
@@ -1174,7 +1175,7 @@ local folder_Zoom = CreateFolder(elementsContainer, "Zoom Keybind", nil, true)
 local switch_Zoom_Enabled = CreateSwitch(folder_Zoom, "Enabled", false)
 local keybind_Zoom = CreateKeybind(folder_Zoom, "Keybind", Enum.KeyCode.LeftControl)
 local input_Zoom_FOV = CreateInput(folder_Zoom, "Zoom FOV", 25)
-local inputAndButton_Normal_FOV = CreateInputAndButton(folder_Zoom, "Set Normal FOV", 70, "Set")
+local inputAndButton_Set_FOV = CreateInputAndButton(folder_Zoom, "Set FOV", 70, "Set")
 
 -- Core Gui
 local folder_CoreGui = CreateFolder(elementsContainer, "Core Gui", nil, false)
@@ -1288,6 +1289,7 @@ table.insert(ALL_CONNECTIONS, inputChangedConnection)
 -- ESP
 local lastMissingESPCheckTick = tick()
 local espList = {}
+local serverFriendsWithList = {} -- Table with everyone in the server that is a friend with the local player
 
 local function CreateESPForPlayer(plr)
 	if switch_ESP_Enabled.On() == false then return end
@@ -1734,6 +1736,12 @@ local plrAdded = PLAYER_SERVICE.PlayerAdded:Connect(function(plr)
 	local c = plr.CharacterAdded:Connect(function()
 		CreateESPForPlayer(plr)
 	end)
+	
+	if plr:IsFriendsWith(LOCAL_PLAYER.UserId) then
+		serverFriendsWithList[plr] = true
+	else
+		serverFriendsWithList[plr] = false
+	end
 
 	table.insert(ALL_CONNECTIONS, c)
 end)
@@ -2000,6 +2008,13 @@ local function Process_Aimbot(deltaTime)
 								checked = false
 							end
 						end
+						
+						-- Ignore friends
+						if switch_Aimbot_Ignore_Friends.On() then
+							if serverFriendsWithList[v] then
+								checked = false
+							end
+						end
 
 						if switch_Aimbot_Wall_Check.On() then
 							local me = character:GetPrimaryPartCFrame().Position
@@ -2178,10 +2193,10 @@ local function Process_Camera(deltaTime)
 			end
 		end
 		
-		-- Normal FOV
+		-- Set FOV
 		
-		if inputAndButton_Normal_FOV.GetPressCount() > 0 then
-			camera.FieldOfView = inputAndButton_Normal_FOV.GetInputTextAsNumber(70)
+		if inputAndButton_Set_FOV.GetPressCount() > 0 then
+			camera.FieldOfView = inputAndButton_Set_FOV.GetInputTextAsNumber(70)
 		end
 	end)
 
